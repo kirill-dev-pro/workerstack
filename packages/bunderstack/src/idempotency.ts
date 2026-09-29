@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 
 import type { AnyDb } from './dialect'
 
-import { idempotencyTableFor } from './internal-tables'
+import { bunderstackIdempotency } from './internal-tables'
 
 export type IdempotencyConfig = {
   ttlMs?: number
@@ -26,7 +26,7 @@ export async function lookupIdempotency(
   key: string,
   body: string,
 ): Promise<IdempotencyLookup> {
-  const t = idempotencyTableFor(db)
+  const t = bunderstackIdempotency
   const now = Date.now()
 
   // TTL sweep: drop expired rows before reading.
@@ -65,7 +65,7 @@ export async function storeIdempotency(
   response: unknown,
   config: IdempotencyConfig,
 ): Promise<void> {
-  const t = idempotencyTableFor(db)
+  const t = bunderstackIdempotency
   const ttlMs = config.ttlMs ?? DEFAULT_TTL_MS
   const expiresAt = Date.now() + ttlMs
   const bodyHash = hashBody(body)

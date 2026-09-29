@@ -2,14 +2,14 @@ import { and, eq } from 'drizzle-orm'
 
 import type { AnyDb } from '../dialect'
 
-import { messagesTableFor } from '../internal-tables'
+import { bunderstackMessages } from '../internal-tables'
 
 export async function insertMessage(
   db: AnyDb | undefined,
   value: Record<string, unknown>,
 ) {
   if (!db) return
-  await db.insert(messagesTableFor(db)).values(value)
+  await db.insert(bunderstackMessages).values(value)
 }
 
 export async function updateMessage(
@@ -19,7 +19,7 @@ export async function updateMessage(
   expectedStatus?: string,
 ) {
   if (!db) return
-  const table = messagesTableFor(db)
+  const table = bunderstackMessages
   await db
     .update(table)
     .set(value)

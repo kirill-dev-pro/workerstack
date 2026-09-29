@@ -1,5 +1,5 @@
 import type { DbFor, Driver } from '../db'
-import type { AnyDb, Dialect } from '../dialect'
+import type { AnyDb } from '../dialect'
 
 export type DatabaseConnection = {
   url: string
@@ -25,7 +25,6 @@ export type DatabaseConnectionResult<TSchema extends Record<string, unknown>> =
   }
 
 export type DatabaseAdapter = {
-  readonly dialect: Dialect
   readonly driver: Driver
   connect<TSchema extends Record<string, unknown>>(
     schema: TSchema,

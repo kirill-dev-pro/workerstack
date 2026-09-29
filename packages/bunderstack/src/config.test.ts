@@ -12,8 +12,7 @@ import {
 } from './config'
 import { validateEnv } from './env'
 
-const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
-  dialect,
+const fakeAdapter = (): DatabaseAdapter => ({
   driver: 'libsql',
   connect: async () => ({}) as never,
   migrate: async () => {},
@@ -175,7 +174,7 @@ test('resolveConfig still reads database overrides from options', () => {
     {
       schema: {},
       database: {
-        adapter: { dialect: 'sqlite' } as never,
+        adapter: {} as never,
         url: 'file:./explicit.db',
         authToken: 'tok',
         migrations: './custom-migrations',
@@ -193,7 +192,7 @@ test('resolveConfig still passes realtime through', () => {
   const resolved = resolveConfig(
     {
       schema: {},
-      database: { adapter: { dialect: 'sqlite' } as never },
+      database: { adapter: {} as never },
       realtime: { resumeSeconds: 300 },
     } as never,
     { DATABASE_URL: 'file::memory:' } as never,
@@ -207,7 +206,7 @@ test('a malformed realtime option still throws', () => {
     resolveConfig(
       {
         schema: {},
-        database: { adapter: { dialect: 'sqlite' } as never },
+        database: { adapter: {} as never },
         realtime: { resumeSeconds: 'soon' },
       } as never,
       { DATABASE_URL: 'file::memory:' } as never,
@@ -221,7 +220,7 @@ test('a malformed rateLimit option still throws', () => {
     resolveConfig(
       {
         schema: {},
-        database: { adapter: { dialect: 'sqlite' } as never },
+        database: { adapter: {} as never },
         rateLimit: { max: 'lots' },
       } as never,
       { DATABASE_URL: 'file::memory:' } as never,

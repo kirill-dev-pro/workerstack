@@ -142,64 +142,6 @@ describe('server bundle boundaries', () => {
     expect(output.text).not.toContain('drizzle-kit/api')
   })
 
-  test('Vite SSR bundles production provision without Drizzle Kit', async () => {
-    const fixture = await mkdtemp(join(tmpdir(), 'bunderstack-vite-provision-'))
-    const outDir = join(fixture, 'dist')
-    const configPath = join(fixture, 'vite.config.ts')
-    const entrypoint = join(repoRoot, 'packages/bunderstack/src/provision.ts')
-
-    await writeFile(
-      configPath,
-      `export default {
-  logLevel: 'silent',
-  build: {
-    ssr: ${JSON.stringify(entrypoint)},
-    outDir: ${JSON.stringify(outDir)},
-    emptyOutDir: true,
-    minify: false,
-  },
-  ssr: { noExternal: true },
-}
-`,
-    )
-
-    try {
-      const proc = Bun.spawn(
-        [
-          'bun',
-          'run',
-          '--cwd',
-          join(repoRoot, 'examples/todo'),
-          'vite',
-          'build',
-          '--config',
-          configPath,
-        ],
-        { stdout: 'pipe', stderr: 'pipe' },
-      )
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ])
-      expect(exitCode, stdout + stderr).toBe(0)
-
-      const chunks = await readdir(outDir)
-      const output = (
-        await Promise.all(
-          chunks
-            .filter((name) => name.endsWith('.js'))
-            .map((name) => readFile(join(outDir, name), 'utf8')),
-        )
-      ).join('\n')
-      expect(output).not.toContain('drizzle-kit/api')
-      expect(output).not.toContain('aws-data-api')
-      expect(output).not.toContain('vercel-postgres')
-    } finally {
-      await rm(fixture, { recursive: true, force: true })
-    }
-  })
-
   test('root runtime does not eagerly bundle test fixtures', async () => {
     const output = await bundle(
       'packages/bunderstack/src/index.ts',

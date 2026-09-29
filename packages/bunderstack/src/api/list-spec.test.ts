@@ -1,14 +1,14 @@
-import { PGlite } from '@electric-sql/pglite'
+import { createClient } from '@libsql/client'
 import { createProcedureClient } from '@orpc/server'
 import { expect, test } from 'bun:test'
-import { integer, pgTable, text } from 'drizzle-orm/pg-core'
-import { drizzle } from 'drizzle-orm/pglite'
+import { drizzle } from 'drizzle-orm/libsql'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { defineApi } from './builder'
 import { createApiContext } from './context'
 import { listSpec } from './list-spec'
 
-const logs = pgTable('logs', {
+const logs = sqliteTable('logs', {
   id: text('id').primaryKey(),
   level: text('level').notNull(),
   createdAt: integer('created_at').notNull(),
@@ -18,8 +18,8 @@ const schema = { logs }
 
 // Same setup shape as crud-router.test.ts, so both suites use one harness.
 async function createDb() {
-  const client = new PGlite()
-  await client.exec(`
+  const client = createClient({ url: ':memory:' })
+  await client.executeMultiple(`
     CREATE TABLE logs (
       id TEXT PRIMARY KEY,
       level TEXT NOT NULL,

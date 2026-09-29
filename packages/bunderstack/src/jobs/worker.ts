@@ -1,17 +1,6 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
 // recover expired leases → reap old succeeded rows → claim and run queue jobs.
-import {
-  and,
-  desc,
-  eq,
-  inArray,
-  is,
-  isNotNull,
-  lt,
-  lte,
-  sql,
-} from 'drizzle-orm'
-import { PgDatabase } from 'drizzle-orm/pg-core'
+import { and, desc, eq, inArray, isNotNull, lt, lte, sql } from 'drizzle-orm'
 
 import type { AnyDb } from '../dialect'
 import type { BunderstackLogger } from '../logging'
@@ -22,7 +11,7 @@ import type {
   TickResult,
 } from './define'
 
-import { jobsTableFor } from '../internal-tables'
+import { bunderstackJobs } from '../internal-tables'
 import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
@@ -150,7 +139,7 @@ export function createJobRunner(deps: {
 }) {
   const { db, defs } = deps
   const logger = deps.logger ?? consoleLogger
-  const t = jobsTableFor(db)
+  const t = bunderstackJobs
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
   const active = new Map<string, Set<Promise<void>>>()
@@ -383,15 +372,8 @@ export function createJobRunner(deps: {
       .where(and(eq(t.type, type), eq(t.status, 'pending'), lte(t.runAt, now)))
       .orderBy(t.runAt)
       .limit(limit)
-    // PG: lock the selected rows so concurrent replicas skip them. SQLite's
-    // single-writer model makes the one-statement UPDATE atomic on its own.
-    const sub = is(db, PgDatabase)
-      ? (
-          pendingIds as unknown as {
-            for: (m: string, o: object) => typeof pendingIds
-          }
-        ).for('update', { skipLocked: true })
-      : pendingIds
+    // SQLite's single-writer model makes the one-statement UPDATE atomic.
+    const sub = pendingIds
     const rows: JobRow[] = await db
       .update(t)
       .set({

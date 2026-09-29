@@ -1,8 +1,8 @@
-import { PGlite } from '@electric-sql/pglite'
+import { createClient } from '@libsql/client'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { expect, test } from 'bun:test'
-import { integer, pgTable, text } from 'drizzle-orm/pg-core'
-import { drizzle } from 'drizzle-orm/pglite'
+import { drizzle } from 'drizzle-orm/libsql'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { RealtimeChange } from '../realtime/publisher'
 
@@ -11,7 +11,7 @@ import { createMemoryRealtimePublisher } from '../realtime/publisher'
 import { createApiContext } from './context'
 import { buildCrudApiRouter } from './crud-router'
 
-const posts = pgTable('posts', {
+const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('user_id'),
@@ -21,8 +21,8 @@ const posts = pgTable('posts', {
 const schema = { posts }
 
 async function setupTestDb() {
-  const client = new PGlite()
-  await client.exec(`
+  const client = createClient({ url: ':memory:' })
+  await client.executeMultiple(`
     CREATE TABLE posts (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,

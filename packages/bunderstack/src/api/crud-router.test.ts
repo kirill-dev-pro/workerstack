@@ -1,16 +1,16 @@
-import { PGlite } from '@electric-sql/pglite'
+import { createClient } from '@libsql/client'
 import { OpenAPIGenerator } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 import { test, expect } from 'bun:test'
-import { pgTable, text, integer } from 'drizzle-orm/pg-core'
-import { drizzle } from 'drizzle-orm/pglite'
+import { drizzle } from 'drizzle-orm/libsql'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from '../access'
 import { createApiContext } from './context'
 import { buildCrudApiRouter } from './crud-router'
 
-const posts = pgTable('posts', {
+const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   content: text('content'),
@@ -21,8 +21,8 @@ const posts = pgTable('posts', {
 const schema = { posts }
 
 async function setupTestDb() {
-  const client = new PGlite()
-  await client.exec(`
+  const client = createClient({ url: ':memory:' })
+  await client.executeMultiple(`
     CREATE TABLE posts (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,

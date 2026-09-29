@@ -103,7 +103,7 @@ const cronSchedule = v.pipe(
 const manifestSchema = v.strictObject({
   version: v.literal(4),
   database: v.strictObject({
-    dialect: v.picklist(['sqlite', 'pg']),
+    dialect: v.picklist(['sqlite']),
     migrationsDirectory: migrationDirectory,
     tables: v.array(
       v.strictObject({

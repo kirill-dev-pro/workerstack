@@ -28,7 +28,6 @@ async function fixture(
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
 
 const throwingAdapter = {
-  dialect: 'sqlite',
   driver: 'libsql',
   async connect() { throw new Error('blueprint must not boot the runtime') },
   async migrate() {},
@@ -81,7 +80,7 @@ test('generateBlueprint normalizes absolute migration directories inside the app
 export const backend = bunderstack({
   schema: {},
   database: {
-    adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
+    adapter: { driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
     migrations: ${JSON.stringify(migrationsDirectory)},
   },
 })`,
@@ -119,7 +118,7 @@ test('generateBlueprint detects solid framework from dependencies', async () => 
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
 export const backend = bunderstack({
   schema: {},
-  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+  database: { adapter: { driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
 })`,
   )
   try {
@@ -160,7 +159,7 @@ export const backend = bunderstack({
   schema: {},
   env: { server: { FEATURE: flag } },
   database: (env) => ({
-    adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
+    adapter: { driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
     url: env.FEATURE,
   }),
 })`,
@@ -185,7 +184,7 @@ const flag = { '~standard': { version: 1, vendor: 'test', validate(value) {
 export const backend = bunderstack({
   schema: {},
   env: { server: { FEATURE: flag } },
-  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+  database: { adapter: { driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
   realtime: (env) => env.FEATURE === 'true',
 })`,
   )
@@ -229,7 +228,7 @@ export const backend = bunderstack({
     server: { OPENAI_API_KEY: secret },
     meta: { OPENAI_API_KEY: { description: 'Provider key' } },
   },
-  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+  database: { adapter: { driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
   jobs: (j) => j.define({
     agentTurn: j.job({ handler() {} }),
   }),

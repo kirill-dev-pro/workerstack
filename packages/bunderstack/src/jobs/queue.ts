@@ -1,35 +1,24 @@
 // src/jobs/queue.ts — durable enqueue with constraint-backed dedupe.
 import { and, eq, is } from 'drizzle-orm'
-import { PgDatabase } from 'drizzle-orm/pg-core'
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
 
-import type { AnyDb, Dialect } from '../dialect'
+import type { AnyDb } from '../dialect'
 import type { EnqueueOptions, JobsDefs } from './define'
 
-import { jobsTableFor } from '../internal-tables'
+import { bunderstackJobs } from '../internal-tables'
 import { validateStandardSchema } from '../standard-schema'
 import { generate } from '../typeid'
 import { CRON_PREFIX } from './slots'
 
-function handleDialect(handle: unknown): Dialect | undefined {
-  if (is(handle, PgDatabase)) return 'pg'
-  if (is(handle, BaseSQLiteDatabase)) return 'sqlite'
-  return undefined
-}
-
 /**
  * The handle an enqueue inserts through: the caller's transaction when given,
- * otherwise the app database. Drizzle transactions extend their dialect's
- * database class, so the internal jobs table resolves the same way for both.
- * A transaction from an unrelated connection of the same dialect cannot be
- * detected cheaply and is unsupported.
+ * otherwise the app database. A transaction from an unrelated connection
+ * cannot be detected cheaply and is unsupported.
  */
 export function enqueueTarget(db: AnyDb, tx: AnyDb | undefined): AnyDb {
   if (tx === undefined) return db
-  if (handleDialect(tx) !== handleDialect(db)) {
-    throw new Error(
-      '[bunderstack] enqueue tx belongs to a different database dialect',
-    )
+  if (!is(tx, BaseSQLiteDatabase)) {
+    throw new Error('[bunderstack] enqueue tx is not a SQLite transaction')
   }
   return tx
 }
@@ -60,7 +49,7 @@ export async function enqueueJob(
     : def.input
       ? validateStandardSchema(def.input, input, `job "${name}" input`)
       : null
-  const t = jobsTableFor(db)
+  const t = bunderstackJobs
   const runAt = resolveRunAt(opts, now)
 
   // Two rounds cover the race where the deduping row reaches a terminal state

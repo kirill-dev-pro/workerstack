@@ -15,7 +15,6 @@ test('provisionSchema pushes schema to in-memory sqlite', async () => {
   const schema = { widgets }
   const { db } = await createDb(schema, {
     url: ':memory:',
-    dialect: 'sqlite',
     adapter: libsql(),
   })
   await provisionSchema(db, schema, { force: true })

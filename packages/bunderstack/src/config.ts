@@ -266,8 +266,7 @@ export function resolveConfig<
     throw new Error('[bunderstack] database.adapter is required')
   }
 
-  const defaultUrl =
-    adapter.dialect === 'sqlite' ? 'file:./data.db' : 'file:./data.pglite'
+  const defaultUrl = 'file:./data.db'
 
   return {
     database: {

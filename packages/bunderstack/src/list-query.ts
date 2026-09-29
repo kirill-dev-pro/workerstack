@@ -5,16 +5,13 @@ import {
   eq,
   getTableColumns,
   gt,
-  ilike,
   inArray,
-  is,
   like,
   lt,
   or,
   sql,
   type SQL,
 } from 'drizzle-orm'
-import { PgTable } from 'drizzle-orm/pg-core'
 
 import type { ResolvedTableAccess, SortOrder } from './access'
 import type { AnyDb } from './dialect'
@@ -138,12 +135,9 @@ function buildSearchWhere(
   if (!q || !searchableColumns?.length) return undefined
   const columns = getTableColumns(table)
   const pattern = `%${q.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`
-  // LIKE is case-insensitive in SQLite but case-sensitive in Postgres; use
-  // ilike there so search behaves identically across dialects.
-  const likeOp = is(table, PgTable) ? ilike : like
   const conditions = searchableColumns
     .filter((name) => name in columns)
-    .map((name) => likeOp(columns[name]!, pattern))
+    .map((name) => like(columns[name]!, pattern))
   return conditions.length ? or(...conditions) : undefined
 }
 

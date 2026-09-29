@@ -105,7 +105,7 @@ test('typeid() builds a branded text column without an implicit insert default',
   })
   const { db } = await createDb(
     { widgets },
-    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+    { url: ':memory:', adapter: libsql() },
   )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
@@ -134,7 +134,7 @@ test('typeid() can explicitly generate a prefixed id with $defaultFn', async () 
   })
   const { db } = await createDb(
     { widgets },
-    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+    { url: ':memory:', adapter: libsql() },
   )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.

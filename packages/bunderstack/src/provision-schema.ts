@@ -1,6 +1,5 @@
 import type { AnyDb } from './dialect'
 
-import { detectDialect } from './dialect'
 import {
   applyCommittedMigrations,
   ensureLocalDataDir,
@@ -18,9 +17,8 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
   schema: TSchema,
   options?: { force?: boolean; databaseUrl?: string },
 ): Promise<void> {
-  const dialect = detectDialect(schema)
   if (options?.databaseUrl) {
-    await ensureLocalDataDir(options.databaseUrl, dialect)
+    await ensureLocalDataDir(options.databaseUrl)
   }
 
   let kit: typeof import('drizzle-kit/api')
@@ -30,10 +28,7 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
     throw new Error(DRIZZLE_KIT_HINT, { cause })
   }
 
-  const result =
-    dialect === 'pg'
-      ? await kit.pushSchema(schema, db as never)
-      : await kit.pushSQLiteSchema(schema, db as never)
+  const result = await kit.pushSQLiteSchema(schema, db as never)
 
   if (result.hasDataLoss && !options?.force) {
     throw new Error(

@@ -16,7 +16,6 @@ const notes = sqliteTable('notes', { id: text('id').primaryKey() })
 test('bunderstack is synchronous and does not connect', () => {
   let connects = 0
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect() {
       connects++
@@ -92,7 +91,6 @@ test('env slots are lazy and resolve per inspected environment', () => {
 test('hosted blueprint mismatch fails before connecting to the database', async () => {
   let connects = 0
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect() {
       connects++

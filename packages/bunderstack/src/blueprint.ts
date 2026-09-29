@@ -142,7 +142,7 @@ const sharedEntries = {
   }),
   resources: open({
     database: open({
-      dialect: v.picklist(['sqlite', 'pg']),
+      dialect: v.picklist(['sqlite']),
       migrationsDirectory: relativePath,
       migrationMode: v.picklist(['migrations', 'push']),
       tables: v.array(

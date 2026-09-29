@@ -7,7 +7,7 @@ import type { BucketStorageRegistry } from './registry'
 
 import { checkAccess } from '../access'
 import { BunderstackError } from '../errors'
-import { deleteFileWithDerivatives } from './delete'
+import { deleteStoredFile } from './delete'
 import {
   deleteFileMetaRow,
   fileMatchesScope,
@@ -19,7 +19,6 @@ import {
   sumReadySize,
   type FileMetaRow,
 } from './file-meta'
-import { parseTransformSpec, transformHash, transformImage } from './thumbnails'
 
 export interface StorageExecutionContext {
   request: Request
@@ -292,7 +291,6 @@ export function createStorageOperations(options: StorageOperationsOptions) {
     async download(
       bucketName: string,
       id: string,
-      query: Record<string, string>,
       context: StorageExecutionContext,
     ): Promise<StorageDownload> {
       const { bucket, adapter } = bucketEntry(bucketName)
@@ -304,50 +302,6 @@ export function createStorageOperations(options: StorageOperationsOptions) {
       const ctx = accessContext(context, { row })
       await gate(bucket.access.get, ctx)
       if (!fileMatchesScope(row, bucket.readScope?.(ctx))) notFound()
-
-      const spec = parseTransformSpec(query)
-      if (spec) {
-        if (!bucket.transforms) {
-          throw new BunderstackError(
-            'BAD_REQUEST',
-            'Transforms not enabled for this bucket',
-          )
-        }
-        const ext = spec.format ? `.${spec.format}` : extname(fileId) || '.jpg'
-        const cacheKey = `${fileId}__transforms/${transformHash(spec)}${ext}`
-        if (await adapter.exists(cacheKey)) {
-          const cached = await adapter.get(cacheKey)
-          const headers = new Headers(cached.headers)
-          headers.set('Cache-Control', 'public, max-age=31536000')
-          return {
-            kind: 'body',
-            status: cached.status,
-            body: cached.body,
-            headers,
-          }
-        }
-
-        const original = await adapter.get(fileId)
-        if (original.status === 404) notFound()
-        const transformed = await transformImage(
-          Buffer.from(await original.arrayBuffer()),
-          spec,
-        )
-        const contentType = spec.format
-          ? `image/${spec.format}`
-          : (original.headers.get('Content-Type') ?? 'image/jpeg')
-        const body = Uint8Array.from(transformed).buffer
-        await adapter.upload(cacheKey, body, contentType)
-        return {
-          kind: 'body',
-          status: 200,
-          body,
-          headers: new Headers({
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000',
-          }),
-        }
-      }
 
       if (bucket.visibility === 'public' && adapter.publicUrlFor) {
         const url = adapter.publicUrlFor(fileId)
@@ -391,7 +345,7 @@ export function createStorageOperations(options: StorageOperationsOptions) {
       const ctx = accessContext(context, { row })
       await gate(bucket.access.delete, ctx)
       if (!fileMatchesScope(row, bucket.readScope?.(ctx))) notFound()
-      await deleteFileWithDerivatives(adapter, db, fileId)
+      await deleteStoredFile(adapter, db, fileId)
     },
   }
 }

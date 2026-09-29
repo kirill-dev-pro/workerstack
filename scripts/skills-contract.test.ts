@@ -121,21 +121,6 @@ describe('skills teach the current API declaration', () => {
     expect(markdown).toContain('when the stream closes')
   })
 
-  test('creating skill points at the shipped llms.txt', () => {
-    const markdown = read('.agents/skills/creating-bunderstack-apps/SKILL.md')
-    expect(markdown).toContain('node_modules/bunderstack/llms.txt')
-  })
-})
-
-test('published docs describe the implemented realtime behavior', () => {
-  const readme = read('README.md')
-  const design = read(
-    'docs/superpowers/specs/2026-08-11-sync-mutation-reconciliation-design.md',
-  )
-
-  expect(readme).toContain('heartbeat')
-  expect(readme).toContain('without a follow-up list refetch')
-  expect(design).toContain('**Status:** Implemented')
 })
 
 describe('skills delivery', () => {
@@ -158,11 +143,4 @@ describe('skills delivery', () => {
     expect(cli).toContain('bunderstack skills [--dir <path>] [--check]')
   })
 
-  test('the docs show how to install and how to check', () => {
-    const docs = read('website/content/docs/templates-and-skills.mdx')
-    expect(docs).toContain('bunx bunderstack skills')
-    expect(docs).toContain('bunx bunderstack skills --check')
-    expect(docs).toContain('AGENTS.md')
-    expect(docs).toContain('node_modules/bunderstack/llms.txt')
-  })
 })

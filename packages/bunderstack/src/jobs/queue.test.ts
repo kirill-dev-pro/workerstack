@@ -24,10 +24,7 @@ const defs: JobsDefs = {
 }
 
 beforeAll(async () => {
-  ;({ db } = await createDb(
-    {},
-    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
-  ))
+  ;({ db } = await createDb({}, { url: ':memory:', adapter: libsql() }))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,

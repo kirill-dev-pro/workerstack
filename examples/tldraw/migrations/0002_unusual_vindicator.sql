@@ -1,1 +1,0 @@
-ALTER TABLE `shape` ADD `ownerId` text REFERENCES user(id);

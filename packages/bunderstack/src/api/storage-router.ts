@@ -166,7 +166,6 @@ function buildBucketProcedures(
       const result = await operations.download(
         name,
         input.params.path,
-        input.query,
         await executionContext(context),
       )
       if (result.kind === 'redirect') {

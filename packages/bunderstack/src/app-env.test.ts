@@ -41,7 +41,6 @@ test('bunderstack refuses to boot on invalid env', async () => {
 test('app.close closes the database exactly once', async () => {
   let closeCount = 0
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect(schema) {
       return {
@@ -68,7 +67,6 @@ test('initialization failure closes the database and preserves the cause', async
   let closeCount = 0
   const initializationError = new Error('API initialization failed')
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect(schema) {
       return {
@@ -105,7 +103,6 @@ test('initialization and cleanup failures are preserved in an AggregateError', a
   const initializationError = new Error('API initialization failed')
   const cleanupError = new Error('database cleanup failed')
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect(schema) {
       return {

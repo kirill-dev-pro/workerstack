@@ -14,16 +14,12 @@ const posts = sqliteTable('posts', {
 test('createAuth returns an object with a handler function', async () => {
   const { db } = await createDb(
     { posts },
-    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+    { url: ':memory:', adapter: libsql() },
   )
-  const auth = createAuth(
-    db,
-    {
-      emailAndPassword: { enabled: true },
-      secret: 'test-secret-at-least-32-chars-long-x',
-    },
-    'sqlite',
-  )
+  const auth = createAuth(db, {
+    emailAndPassword: { enabled: true },
+    secret: 'test-secret-at-least-32-chars-long-x',
+  })
   expect(typeof auth.handler).toBe('function')
 })
 
@@ -33,7 +29,7 @@ test('lazyAuth builds the instance on first access, once', () => {
     builds += 1
     return { handler: () => 'ok', api: {} }
   })
-  const ctx = ({ auth })
+  const ctx = { auth }
   expect(builds).toBe(0)
   expect(ctx.auth.handler()).toBe('ok')
   expect('api' in auth).toBe(true)

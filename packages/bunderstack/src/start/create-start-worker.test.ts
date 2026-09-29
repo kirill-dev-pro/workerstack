@@ -10,7 +10,6 @@ test('routes /api to bunderstack, other paths to Start, and registers the Worker
     schema: {},
     database: {
       adapter: {
-        dialect: 'sqlite',
         driver: 'libsql',
         async connect() {
           throw new Error('not used')

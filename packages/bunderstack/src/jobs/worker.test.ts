@@ -16,10 +16,7 @@ import { createJobRunner } from './worker'
 let db: LibSQLDatabase<Record<string, never>>
 
 async function freshDb() {
-  ;({ db } = await createDb(
-    {},
-    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
-  ))
+  ;({ db } = await createDb({}, { url: ':memory:', adapter: libsql() }))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,

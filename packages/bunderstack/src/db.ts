@@ -1,74 +1,30 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-import type { PgDatabase, PgQueryResultHKT, PgTable } from 'drizzle-orm/pg-core'
 
 import type {
   DatabaseAdapter,
   DatabaseConnection,
   DatabaseConnectionResult,
 } from './database/adapter'
-import type { Dialect } from './dialect'
 
-export type Driver =
-  | 'libsql'
-  | 'bun-sqlite'
-  | 'pglite'
-  | 'bun-sql'
-  | 'postgres-js'
+export type Driver = 'libsql'
 
-/** Per-dialect public db type, computed from the schema's table brands. */
-export type DbFor<TSchema extends Record<string, unknown>> = [
-  Extract<TSchema[keyof TSchema], PgTable>,
-] extends [never]
-  ? LibSQLDatabase<TSchema>
-  : PgDatabase<PgQueryResultHKT, TSchema>
+/** The public db type for a schema. */
+export type DbFor<TSchema extends Record<string, unknown>> =
+  LibSQLDatabase<TSchema>
 
 /** The database an application receives on `context.db` and `app.db`. */
 export type BunderstackDb<TSchema extends Record<string, unknown>> =
   DbFor<TSchema>
 
-/**
- * The transaction handle inside `db.transaction(...)`. Drizzle publishes no
- * single transaction type for both dialects, so this reads the callback
- * parameter of the resolved database type.
- */
+/** The transaction handle inside `db.transaction(...)`. */
 export type BunderstackTx<TSchema extends Record<string, unknown>> = Parameters<
   Parameters<DbFor<TSchema>['transaction']>[0]
 >[0]
 
-const PG_SERVER_RE = /^postgres(ql)?:\/\//
-const LIBSQL_REMOTE_RE = /^(libsql|wss?|https?):\/\//
-
-export function validateDatabaseUrl(url: string, dialect: Dialect) {
-  if (dialect === 'sqlite') {
-    if (PG_SERVER_RE.test(url)) {
-      throw new Error(
-        '[bunderstack] DATABASE_URL is a Postgres URL but the schema uses sqliteTable. ' +
-          'Define the schema with drizzle-orm/pg-core, or point DATABASE_URL at a SQLite database.',
-      )
-    }
-  } else if (dialect === 'pg') {
-    if (LIBSQL_REMOTE_RE.test(url)) {
-      throw new Error(
-        '[bunderstack] DATABASE_URL looks like a libsql/Turso URL but the schema uses pgTable. ' +
-          'Set DATABASE_URL=postgres://… (or leave it unset for local PGlite).',
-      )
-    }
-  }
-}
-
 export async function createDb<TSchema extends Record<string, unknown>>(
   schema: TSchema,
-  cfg: DatabaseConnection & {
-    adapter: DatabaseAdapter
-    dialect: Dialect
-  },
+  cfg: DatabaseConnection & { adapter: DatabaseAdapter },
 ): Promise<DatabaseConnectionResult<TSchema> & { driver: Driver }> {
-  if (cfg.adapter.dialect !== cfg.dialect) {
-    throw new Error(
-      `[bunderstack] database adapter dialect ${cfg.adapter.dialect} does not match ${cfg.dialect} schema`,
-    )
-  }
-  validateDatabaseUrl(cfg.url, cfg.dialect)
   const result = await cfg.adapter.connect(schema, {
     url: cfg.url,
     authToken: cfg.authToken,

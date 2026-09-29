@@ -52,7 +52,6 @@ class PresignAdapter implements StorageAdapter {
 test('bucket.upload confirms a presigned upload with the bucket-relative id', async () => {
   const { db } = await createDb(INTERNAL_TABLES, {
     url: ':memory:',
-    dialect: 'sqlite',
     adapter: libsql(),
   })
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
@@ -63,7 +62,6 @@ test('bucket.upload confirms a presigned upload with the bucket-relative id', as
     backend: { type: 'local', path: '/unused' },
     visibility: 'private',
     access: { create: 'authenticated', get: 'owner', delete: 'owner' },
-    transforms: false,
   }
   const registry: BucketStorageRegistry = new Map([
     ['media', { bucket, adapter }],

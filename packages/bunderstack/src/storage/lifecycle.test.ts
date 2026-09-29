@@ -13,7 +13,7 @@ import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables'
 import { provisionSchema } from '../provision-schema'
-import { deleteFileWithDerivatives } from './delete'
+import { deleteStoredFile } from './delete'
 import { getFileMeta, insertPendingFile, insertReadyFile } from './file-meta'
 import { LocalStorageAdapter } from './local'
 import { sweepOrphans } from './sweep'
@@ -25,7 +25,6 @@ let adapter: LocalStorageAdapter
 beforeEach(async () => {
   const { db } = await createDb(INTERNAL_TABLES, {
     url: ':memory:',
-    dialect: 'sqlite',
     adapter: libsql(),
   })
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
@@ -46,16 +45,13 @@ function bucketEntry(name: string) {
     backend: { type: 'local', path: tmp },
     visibility: 'private',
     access: { create: 'authenticated', get: 'public', delete: 'owner' },
-    transforms: true,
   } as ResolvedBucket
   return { bucket, adapter }
 }
 
-test('deleteFileWithDerivatives removes original + derivatives + meta row', async () => {
+test('deleteStoredFile removes the object and the meta row', async () => {
   const fileId = 'files/abc.png'
   await adapter.upload(fileId, bytes(), 'image/png')
-  await adapter.upload(`${fileId}__transforms/h1.webp`, bytes(), 'image/webp')
-  await adapter.upload(`${fileId}__transforms/h2.webp`, bytes(), 'image/webp')
   await insertReadyFile(dbAny, {
     fileId,
     bucket: 'files',
@@ -66,11 +62,9 @@ test('deleteFileWithDerivatives removes original + derivatives + meta row', asyn
     size: 4,
   })
 
-  await deleteFileWithDerivatives(adapter, dbAny, fileId)
+  await deleteStoredFile(adapter, dbAny, fileId)
 
   expect(await adapter.exists(fileId)).toBe(false)
-  expect(await adapter.exists(`${fileId}__transforms/h1.webp`)).toBe(false)
-  expect(await adapter.exists(`${fileId}__transforms/h2.webp`)).toBe(false)
   expect(await getFileMeta(dbAny, fileId)).toBeNull()
 })
 

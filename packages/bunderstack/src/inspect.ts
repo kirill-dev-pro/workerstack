@@ -7,7 +7,7 @@ import type { BunderstackManifest } from './manifest'
 
 import { createApiBuilder } from './api/builder'
 import { describeApiOperations } from './api/catalog'
-import { detectDialect } from './dialect'
+import { assertSqliteSchema, type Dialect } from './dialect'
 import { createJobsBuilder, validateJobsDefs } from './jobs'
 import { buildManifest } from './manifest'
 import {
@@ -41,7 +41,8 @@ export function inspectConfig(
   env: BaseEnv,
 ): InspectedDefinition {
   const config = { ...input } as AnyDefinitionConfig
-  const dialect = detectDialect(config.schema)
+  assertSqliteSchema(config.schema)
+  const dialect: Dialect = 'sqlite'
   const jobsDefs = config.jobs
     ? typeof config.jobs === 'function'
       ? config.jobs(createJobsBuilder())

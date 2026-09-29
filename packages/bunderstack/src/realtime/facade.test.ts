@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { createRealtimeFacade } from './facade'
@@ -15,9 +14,9 @@ const users = sqliteTable('users', {
   email: text('email').notNull(),
 })
 
-const auditLogs = pgTable('audit_log', {
-  id: pgText('id').primaryKey(),
-  message: pgText('message').notNull(),
+const auditLogs = sqliteTable('audit_log', {
+  id: text('id').primaryKey(),
+  message: text('message').notNull(),
 })
 
 describe('RealtimeFacade', () => {

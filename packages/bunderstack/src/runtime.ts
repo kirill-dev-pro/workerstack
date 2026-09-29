@@ -58,7 +58,7 @@ import {
 } from './config'
 import { resolveAuthConfig } from './config'
 import { createDb } from './db'
-import { detectDialect } from './dialect'
+import { assertSqliteSchema } from './dialect'
 import { type EnvConfigInput, type ValidatedEnv } from './env'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
@@ -88,7 +88,7 @@ import {
   STORAGE_SWEEP_JOB_NAME,
   STORAGE_SWEEP_SCHEDULE,
 } from './storage/background'
-import { deleteFileWithDerivatives } from './storage/delete'
+import { deleteStoredFile } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
@@ -315,7 +315,7 @@ export async function materializeBunderstack<
 > {
   const logger = overrides.logger ?? consoleLogger
   const platform = resolvePlatform(overrides.platform)
-  const dialect = detectDialect(options.schema)
+  assertSqliteSchema(options.schema)
   const jobsDefs = options.jobs as JobsDefs | undefined
   if (!inspectedEnv) {
     throw new Error('[bunderstack] runtime requires an inspected environment')
@@ -338,10 +338,7 @@ export async function materializeBunderstack<
     db,
     driver,
     close: closeDatabase,
-  } = await createDb(mergedSchema, {
-    ...config.database,
-    dialect,
-  })
+  } = await createDb(mergedSchema, config.database)
   const messaging = createMessaging(
     (options.messaging ?? {}) as MessagingConfig,
     {
@@ -357,7 +354,7 @@ export async function materializeBunderstack<
     // and CRUD only expose the USER schema. TS can widen the merged-schema db type
     // on its own (storage/auth pass `db` directly), but it can't *narrow* a
     // generic schema view, so this single intentional cast produces the
-    // user-facing, per-dialect db type. See `app.db` / crud below.
+    // user-facing db type. See `app.db` / crud below.
     const userDb = db as unknown as DbFor<TSchema>
     // An `auth` builder gets the user-facing db, so better-auth hooks in another
     // file can write through the app's own connection without importing the app.
@@ -374,7 +371,6 @@ export async function materializeBunderstack<
           authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
           Boolean(authEmail),
         ),
-        dialect,
         options.schema as Record<string, unknown>,
       )
     // Internal routers consume the narrow AuthSessionResolver contract, not the
@@ -456,7 +452,7 @@ export async function materializeBunderstack<
         const bucketName = fileId.split('/')[0] ?? ''
         const entry = registry.get(bucketName)
         if (entry) {
-          await deleteFileWithDerivatives(entry.adapter, db, fileId)
+          await deleteStoredFile(entry.adapter, db, fileId)
         } else {
           // Unknown bucket: no adapter to clean, but still drop the meta row.
           await deleteFileMetaRow(db, fileId)
@@ -808,7 +804,6 @@ export async function materializeBunderstack<
       schema: mergedSchema,
       databaseUrl: config.database.url,
       migrationsFolder: config.database.migrations,
-      dialect,
       driver,
       adapter: config.database.adapter,
     }
@@ -903,7 +898,6 @@ export type {
   ResolvedBucket,
 } from './storage/buckets'
 // StorageFacade is declared+exported inline above.
-export type { TransformSpec } from './storage/thumbnails'
 export type { RealtimeAction } from './realtime/publisher'
 export { createRealtimeFacade } from './realtime/facade'
 export type {

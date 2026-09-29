@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
-import { integer, pgTable, text } from 'drizzle-orm/pg-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { generateRouteMap, operationName, schemaToType } from './codegen'
-import { pglite } from './database/pglite'
+import { libsql } from './database/libsql'
 import { bunderstack } from './index'
 
-const posts = pgTable('posts', {
+const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('user_id'),
@@ -53,7 +53,7 @@ test('schema mapper covers the shapes bunderstack emits', () => {
 test('generated route map carries literals plus typed phantoms', async () => {
   const app = await bunderstack({
     schema: { posts },
-    database: { adapter: pglite() },
+    database: { adapter: libsql(), url: ':memory:' },
     access: {
       posts: {
         crud: true,

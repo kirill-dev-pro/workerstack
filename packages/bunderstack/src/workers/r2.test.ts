@@ -14,7 +14,6 @@ const bucket = (
   backend,
   visibility: 'private',
   access: { create: 'authenticated', get: 'owner', delete: 'owner' },
-  transforms: false,
 })
 
 const s3Backend = {

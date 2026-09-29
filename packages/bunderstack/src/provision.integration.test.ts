@@ -60,7 +60,6 @@ test('provision applies committed migrations instead of pushing', async () => {
     join(dir, 'meta', '_journal.json'),
     JSON.stringify({
       version: '7',
-      dialect: 'sqlite',
       entries: [
         {
           idx: 0,

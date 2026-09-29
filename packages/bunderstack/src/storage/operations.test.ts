@@ -59,7 +59,6 @@ const bucket = (_adapter: StorageAdapter): ResolvedBucket => ({
   backend: { type: 'local', path: '/unused' },
   visibility: 'private',
   access: { create: 'authenticated', get: 'owner', delete: 'owner' },
-  transforms: false,
 })
 
 let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
@@ -88,7 +87,6 @@ function operationsFor(
 beforeEach(async () => {
   ;({ db } = await createDb(INTERNAL_TABLES, {
     url: ':memory:',
-    dialect: 'sqlite',
     adapter: libsql(),
   }))
   await (
@@ -221,9 +219,9 @@ test('download applies owner access, returns proxy bytes, and delete cleans meta
   const id = uploaded.fileId.slice('docs/'.length)
 
   await expect(
-    operations.download('docs', id, {}, context('u2')),
+    operations.download('docs', id, context('u2')),
   ).rejects.toMatchObject({ code: 'FORBIDDEN' })
-  const downloaded = await operations.download('docs', id, {}, context('u1'))
+  const downloaded = await operations.download('docs', id, context('u1'))
   expect(downloaded.kind).toBe('body')
   if (downloaded.kind !== 'body') throw new Error('expected body')
   expect(new Response(downloaded.body).text()).resolves.toBe('private')
@@ -246,7 +244,7 @@ test('private presigned and public buckets return redirects', async () => {
   )
   const id = uploaded.fileId.slice('docs/'.length)
   expect(
-    await privateOperations.download('docs', id, {}, context('u1')),
+    await privateOperations.download('docs', id, context('u1')),
   ).toMatchObject({
     kind: 'redirect',
     url: expect.stringContaining('https://storage.test/get/'),
@@ -256,9 +254,7 @@ test('private presigned and public buckets return redirects', async () => {
     visibility: 'public',
     access: { create: 'authenticated', get: 'public', delete: 'owner' },
   })
-  expect(
-    await publicOperations.download('docs', id, {}, context(null)),
-  ).toEqual({
+  expect(await publicOperations.download('docs', id, context(null))).toEqual({
     kind: 'redirect',
     status: 302,
     url: `https://cdn.test/${uploaded.fileId}`,

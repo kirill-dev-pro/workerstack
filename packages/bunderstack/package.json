@@ -26,8 +26,6 @@
   "files": [
     "dist",
     "skills",
-    "llms.txt",
-    "llms-full.txt",
     "CHANGELOG.md",
     "README.md",
     "LICENSE"
@@ -49,25 +47,9 @@
       "types": "./dist/codegen.d.ts",
       "default": "./dist/codegen.js"
     },
-    "./bun-sql": {
-      "types": "./dist/database/bun-sql.d.ts",
-      "default": "./dist/database/bun-sql.js"
-    },
-    "./bun-sqlite": {
-      "types": "./dist/database/bun-sqlite.d.ts",
-      "default": "./dist/database/bun-sqlite.js"
-    },
     "./libsql": {
       "types": "./dist/database/libsql.d.ts",
       "default": "./dist/database/libsql.js"
-    },
-    "./pglite": {
-      "types": "./dist/database/pglite.d.ts",
-      "default": "./dist/database/pglite.js"
-    },
-    "./postgres-js": {
-      "types": "./dist/database/postgres-js.d.ts",
-      "default": "./dist/database/postgres-js.js"
     },
     "./live": {
       "types": "./dist/live/index.d.ts",
@@ -97,17 +79,9 @@
       "types": "./dist/schema-export.d.ts",
       "default": "./dist/schema-export.js"
     },
-    "./schema-pg": {
-      "types": "./dist/schema-export-pg.d.ts",
-      "default": "./dist/schema-export-pg.js"
-    },
     "./typeid": {
       "types": "./dist/typeid.d.ts",
       "default": "./dist/typeid.js"
-    },
-    "./typeid-pg": {
-      "types": "./dist/typeid-pg.d.ts",
-      "default": "./dist/typeid-pg.js"
     },
     "./env": {
       "types": "./dist/env.d.ts",
@@ -194,7 +168,6 @@
     "build": "bun ../../scripts/build-package.ts bunderstack",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "dev": "bun --hot ../../examples/standalone/server.ts",
     "prepack": "bun run build",
     "test": "bun test --parallel --timeout=30000",
     "typecheck": "tsc --noEmit"
@@ -208,7 +181,6 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
     "@orpc/client": "2.0.0-beta.37",
     "@orpc/json-schema": "2.0.0-beta.37",
@@ -236,7 +208,6 @@
   },
   "peerDependencies": {
     "@cloudflare/vite-plugin": "^1.62.0",
-    "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
     "@orpc/client": "2.0.0-beta.37",
     "@orpc/json-schema": "2.0.0-beta.37",
@@ -255,7 +226,6 @@
     "drizzle-orm": "^0.45.0",
     "drizzle-valibot": "0.4.2",
     "nodemailer": ">=6 <10",
-    "postgres": ">=3.4.0",
     "react": ">=18",
     "solid-js": ">=2.0.0-rc.0",
     "typescript": ">=5",
@@ -264,9 +234,6 @@
   },
   "peerDependenciesMeta": {
     "@cloudflare/vite-plugin": {
-      "optional": true
-    },
-    "@electric-sql/pglite": {
       "optional": true
     },
     "@libsql/client": {
@@ -297,9 +264,6 @@
       "optional": true
     },
     "nodemailer": {
-      "optional": true
-    },
-    "postgres": {
       "optional": true
     },
     "react": {

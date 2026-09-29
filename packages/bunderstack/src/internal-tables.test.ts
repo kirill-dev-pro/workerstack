@@ -1,11 +1,5 @@
 import { test, expect, beforeAll } from 'bun:test'
-import { getTableName, is, isTable } from 'drizzle-orm'
-import {
-  getTableConfig as getPgTableConfig,
-  PgTable,
-  pgTable,
-  text as pgText,
-} from 'drizzle-orm/pg-core'
+import { getTableName, isTable } from 'drizzle-orm'
 import {
   getTableConfig as getSqliteTableConfig,
   integer,
@@ -24,16 +18,8 @@ import {
   bunderstackJobs,
   INTERNAL_TABLES,
   INTERNAL_TABLE_NAMES,
-  jobsTableFor,
   withInternalTables,
 } from './internal-tables'
-import {
-  bunderstackMessageEventsPg,
-  bunderstackMessagesPg,
-  bunderstackFilesPg,
-  bunderstackIdempotencyPg,
-  bunderstackJobsPg,
-} from './internal-tables-pg'
 import { provisionSchema } from './provision-schema'
 
 // --- table name resolution ---
@@ -116,34 +102,6 @@ test('withInternalTables throws on foreign reserved name _bunderstack_idempotenc
   )
 })
 
-// --- pg twins ---
-
-const pgPosts = pgTable('pg_posts', { id: pgText('id').primaryKey() })
-
-test('withInternalTables merges pg twins into a pg schema', () => {
-  const merged = withInternalTables({ pgPosts })
-  expect(is(merged.bunderstackFiles, PgTable)).toBe(true)
-  expect(is(merged.bunderstackIdempotency, PgTable)).toBe(true)
-  expect(is(merged.bunderstackMessages, PgTable)).toBe(true)
-  expect(is(merged.bunderstackMessageEvents, PgTable)).toBe(true)
-})
-
-test('withInternalTables accepts the pg twins re-exported into the schema', () => {
-  const merged = withInternalTables({
-    pgPosts,
-    bunderstackFiles: bunderstackFilesPg,
-    bunderstackIdempotency: bunderstackIdempotencyPg,
-  })
-  expect(merged.bunderstackFiles).toBe(bunderstackFilesPg as never)
-})
-
-test('withInternalTables still rejects foreign pg tables using reserved names', () => {
-  const impostor = pgTable('bunderstack_file_meta', {
-    id: pgText('id').primaryKey(),
-  })
-  expect(() => withInternalTables({ impostor })).toThrow(/reserved/)
-})
-
 // --- access exclusion ---
 
 test('validateAndResolveAccess excludes internal tables from CRUD', () => {
@@ -162,7 +120,6 @@ let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 beforeAll(async () => {
   ;({ db } = await createDb(INTERNAL_TABLES, {
     url: ':memory:',
-    dialect: 'sqlite',
     adapter: libsql(),
   }))
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
@@ -213,33 +170,22 @@ test('provision round-trip: insert+select bunderstackIdempotency', async () => {
 
 // --- jobs table ---
 
-test('jobs table is registered as an internal table in both dialects', () => {
+test('jobs table is registered as an internal table', () => {
   expect(getTableName(bunderstackJobs)).toBe('_bunderstack_jobs')
-  expect(getTableName(bunderstackJobsPg)).toBe('_bunderstack_jobs')
   expect(isTable(bunderstackJobs)).toBe(true)
-  expect(is(bunderstackJobsPg, PgTable)).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
 })
 
-test('jobs table indexes newest cron rows by type and runAt in both dialects', () => {
-  const sqliteNames = getSqliteTableConfig(bunderstackJobs).indexes.map(
+test('jobs table indexes newest cron rows by type and runAt', () => {
+  const names = getSqliteTableConfig(bunderstackJobs).indexes.map(
     (entry) => entry.config.name,
   )
-  const pgNames = getPgTableConfig(bunderstackJobsPg).indexes.map(
-    (entry) => entry.config.name,
-  )
-
-  expect(sqliteNames).toContain('bjq_type_run_at')
-  expect(pgNames).toContain('bjq_type_run_at')
+  expect(names).toContain('bjq_type_run_at')
 })
 
 test('withInternalTables merges the jobs table', () => {
   const merged = withInternalTables({})
   expect(isTable(merged.bunderstackJobs)).toBe(true)
-})
-
-test('jobsTableFor picks the sqlite twin for a non-pg db', () => {
-  expect(jobsTableFor({})).toBe(bunderstackJobs)
 })
 
 test('provision round-trip: insert+select bunderstackJobs', async () => {
@@ -262,17 +208,11 @@ test('provision round-trip: insert+select bunderstackJobs', async () => {
   expect(inserted!.attempts).toBe(0)
 })
 
-test('message journal tables are registered in both dialects', () => {
+test('message journal tables are registered', () => {
   expect(getTableName(bunderstackMessages)).toBe('_bunderstack_messages')
   expect(getTableName(bunderstackMessageEvents)).toBe(
     '_bunderstack_message_events',
   )
-  expect(getTableName(bunderstackMessagesPg)).toBe('_bunderstack_messages')
-  expect(getTableName(bunderstackMessageEventsPg)).toBe(
-    '_bunderstack_message_events',
-  )
-  expect(is(bunderstackMessagesPg, PgTable)).toBe(true)
-  expect(is(bunderstackMessageEventsPg, PgTable)).toBe(true)
 })
 
 test('provision round-trip: insert message and provider event', async () => {

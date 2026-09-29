@@ -1,17 +1,12 @@
 import { test, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { DatabaseAdapter } from './database/adapter'
 
 import { createDb } from './db'
 
-const fakeAdapter = (
-  dialect: 'sqlite' | 'pg',
-  connectCalls: unknown[] = [],
-): DatabaseAdapter => ({
-  dialect,
+const fakeAdapter = (connectCalls: unknown[] = []): DatabaseAdapter => ({
   driver: 'libsql',
   connect: async (_, conn) => {
     connectCalls.push(conn)
@@ -31,7 +26,6 @@ const posts = sqliteTable('posts', {
 
 test('createDb returns a working Drizzle instance against in-memory SQLite', async () => {
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     connect: async (schema, connection) => {
       const db = drizzle({ connection, schema })
@@ -41,7 +35,7 @@ test('createDb returns a working Drizzle instance against in-memory SQLite', asy
   }
   const { db, driver, close } = await createDb(
     { posts },
-    { url: ':memory:', dialect: 'sqlite', adapter },
+    { url: ':memory:', adapter },
   )
   try {
     expect(driver).toBe('libsql')
@@ -77,7 +71,6 @@ test('createDb returns a working Drizzle instance against in-memory SQLite', asy
 test('createDb returns the adapter cleanup', async () => {
   let closed = false
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect() {
       return {
@@ -94,37 +87,11 @@ test('createDb returns the adapter cleanup', async () => {
     { posts },
     {
       adapter,
-      dialect: 'sqlite',
       url: ':memory:',
     },
   )
   await connection.close?.()
   expect(closed).toBe(true)
-})
-
-const pgSchema = { posts: pgTable('posts', { id: pgText('id').primaryKey() }) }
-
-test('rejects sqlite schema with pg adapter', () => {
-  expect(
-    createDb(
-      { posts },
-      { url: 'file:test.db', dialect: 'sqlite', adapter: fakeAdapter('pg') },
-    ),
-  ).rejects.toThrow(
-    '[bunderstack] database adapter dialect pg does not match sqlite schema',
-  )
-})
-
-test('rejects pg schema with sqlite adapter', () => {
-  expect(
-    createDb(pgSchema, {
-      url: 'postgres://test',
-      dialect: 'pg',
-      adapter: fakeAdapter('sqlite'),
-    }),
-  ).rejects.toThrow(
-    '[bunderstack] database adapter dialect sqlite does not match pg schema',
-  )
 })
 
 test('connect receives resolved URL and auth token exactly once', async () => {
@@ -134,8 +101,7 @@ test('connect receives resolved URL and auth token exactly once', async () => {
     {
       url: 'file:test.db',
       authToken: 'secret',
-      dialect: 'sqlite',
-      adapter: fakeAdapter('sqlite', calls),
+      adapter: fakeAdapter(calls),
     },
   )
   expect(calls).toEqual([{ url: 'file:test.db', authToken: 'secret' }])

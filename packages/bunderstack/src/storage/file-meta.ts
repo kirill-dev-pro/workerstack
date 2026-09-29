@@ -33,7 +33,7 @@ import type { ScopeMap } from '../access'
 import type { AnyDb } from '../dialect'
 
 import { rowMatchesScope } from '../access'
-import { bunderstackFiles, filesTableFor } from '../internal-tables'
+import { bunderstackFiles } from '../internal-tables'
 
 export type FileMetaRow = typeof bunderstackFiles.$inferSelect
 
@@ -50,7 +50,7 @@ export async function insertPendingFile(
     contentType: string | null
   },
 ): Promise<void> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   await db.insert(files).values({
     fileId: input.fileId,
     bucket: input.bucket,
@@ -77,7 +77,7 @@ export async function insertReadyFile(
     size: number | null
   },
 ): Promise<void> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   const now = Date.now()
   await db.insert(files).values({
     fileId: input.fileId,
@@ -98,7 +98,7 @@ export async function markFileReady(
   fileId: string,
   patch: { size: number | null; contentType: string | null },
 ): Promise<void> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   await db
     .update(files)
     .set({
@@ -114,7 +114,7 @@ export async function getFileMeta(
   db: AnyDb,
   fileId: string,
 ): Promise<FileMetaRow | null> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   const rows = await db
     .select()
     .from(files)
@@ -127,7 +127,7 @@ export async function deleteFileMetaRow(
   db: AnyDb,
   fileId: string,
 ): Promise<void> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   await db.delete(files).where(eq(files.fileId, fileId))
 }
 
@@ -137,7 +137,7 @@ export async function listStalePendingFiles(
   db: AnyDb,
   olderThanMs: number,
 ): Promise<FileMetaRow[]> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   return db
     .select()
     .from(files)
@@ -150,7 +150,7 @@ export async function sumReadySize(
   db: AnyDb,
   q: { bucket: string; ownerId?: string; scopeJson?: string },
 ): Promise<number> {
-  const files = filesTableFor(db)
+  const files = bunderstackFiles
   const conditions = [eq(files.status, 'ready'), eq(files.bucket, q.bucket)]
   if (q.ownerId !== undefined) {
     conditions.push(eq(files.ownerId, q.ownerId))

@@ -109,7 +109,6 @@ export type {
   BucketConfigInput,
   ResolvedBucket,
 } from './storage/buckets'
-export type { TransformSpec } from './storage/thumbnails'
 export type { RealtimeAction } from './realtime/publisher'
 export { createRealtimeFacade } from './realtime/facade'
 export type {

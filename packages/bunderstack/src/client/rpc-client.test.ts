@@ -1,20 +1,20 @@
 import { eventIterator } from '@orpc/server'
 import { expect, test } from 'bun:test'
-import { pgTable, text } from 'drizzle-orm/pg-core'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import { pglite } from '../database/pglite'
+import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
 import { createClient } from './rpc-client'
 
-const marker = pgTable('client_test_marker', {
+const marker = sqliteTable('client_test_marker', {
   id: text('id').primaryKey(),
 })
 
 async function setupApp() {
   return bunderstack({
     schema: { marker },
-    database: { adapter: pglite() },
+    database: { adapter: libsql(), url: ':memory:' },
     api: (o) => ({
       test: {
         echo: o.public

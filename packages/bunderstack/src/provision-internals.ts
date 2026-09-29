@@ -1,6 +1,6 @@
 import type { Driver } from './db'
 // src/provision-internals.ts
-import type { AnyDb, Dialect } from './dialect'
+import type { AnyDb } from './dialect'
 
 /**
  * Hidden handle connecting `bunderstack()` to the optional
@@ -19,7 +19,6 @@ export interface ProvisionInternals {
   databaseUrl: string
   /** Resolved migrations folder (config `database.migrations`). */
   migrationsFolder: string
-  dialect: Dialect
   driver: Driver
   adapter: import('./database/adapter').DatabaseAdapter
 }

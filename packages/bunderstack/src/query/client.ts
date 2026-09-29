@@ -12,12 +12,6 @@ export type ClientOptions = {
   queryClient?: QueryClient
 }
 
-export type FileTransformOptions = {
-  w?: number
-  h?: number
-  format?: 'webp' | 'jpeg' | 'png' | 'avif'
-}
-
 export type UploadedFile = {
   fileId: string
   url: string
@@ -25,7 +19,7 @@ export type UploadedFile = {
 }
 
 export type FileBucketHelpers = {
-  url(idOrFileId: string, transforms?: FileTransformOptions): string
+  url(idOrFileId: string): string
   upload(file: File): Promise<UploadedFile>
   delete(idOrFileId: string): Promise<void>
 }
@@ -83,18 +77,8 @@ function attachFileHelpers<T extends object>(
         { call(input: unknown): Promise<any> }
       >
       const root = `${baseUrl}/files/${property}`
-      const url = (
-        idOrFileId: string,
-        transforms: FileTransformOptions = {},
-      ) => {
-        const path = encodeFilePath(relativeId(property, idOrFileId))
-        const params = new URLSearchParams()
-        if (transforms.w !== undefined) params.set('w', String(transforms.w))
-        if (transforms.h !== undefined) params.set('h', String(transforms.h))
-        if (transforms.format) params.set('format', transforms.format)
-        const query = params.toString()
-        return `${root}/${path}${query ? `?${query}` : ''}`
-      }
+      const url = (idOrFileId: string) =>
+        `${root}/${encodeFilePath(relativeId(property, idOrFileId))}`
       const upload = async (file: File): Promise<UploadedFile> => {
         const prepared = await procedures.prepareUpload!.call({
           filename: file.name,

@@ -3,7 +3,6 @@ export type {
   BunderstackClient,
   ClientOptions,
   FileBucketHelpers,
-  FileTransformOptions,
   UploadedFile,
 } from './client'
 export { createApiClient } from './api'

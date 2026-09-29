@@ -84,7 +84,6 @@ describe('resolveBuckets — no input', () => {
     expect(bucket.access.create).toBe('authenticated')
     expect(bucket.access.get).toBe('owner')
     expect(bucket.access.delete).toBe('owner')
-    expect(bucket.transforms).toBe(false)
     expect(bucket.upload).toBeUndefined()
     expect(bucket.quota).toBeUndefined()
     expect(bucket.readScope).toBeUndefined()
@@ -185,7 +184,6 @@ describe('resolveBuckets — two declared buckets', () => {
       avatars: {
         visibility: 'public' as const,
         upload: { maxSize: '5mb', accept: ['image/png', 'image/jpeg'] },
-        transforms: true,
         scope: { read: scopeFn, write: scopeFn },
         quota: { perUser: '100mb', perScope: '10gb' },
       },
@@ -216,11 +214,6 @@ describe('resolveBuckets — two declared buckets', () => {
     const avatars = result.buckets.get('avatars')!
     expect(avatars.upload?.maxSizeBytes).toBe(5 * 1024 * 1024)
     expect(avatars.upload?.accept).toEqual(['image/png', 'image/jpeg'])
-  })
-
-  test('avatars bucket — transforms flag true', () => {
-    const result = resolveBuckets(input, fakeEnv)
-    expect(result.buckets.get('avatars')!.transforms).toBe(true)
   })
 
   test('avatars bucket — quota parsed', () => {

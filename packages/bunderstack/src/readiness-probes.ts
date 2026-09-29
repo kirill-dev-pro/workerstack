@@ -6,7 +6,7 @@ import { and, count, eq, lt } from 'drizzle-orm'
 import type { AnyDb } from './dialect'
 import type { ReadinessProbes } from './readiness'
 
-import { jobsTableFor } from './internal-tables'
+import { bunderstackJobs } from './internal-tables'
 
 /** A pending job this far past its `runAt` means nothing is draining the queue. */
 const OVERDUE_MS = 60_000
@@ -15,7 +15,7 @@ export function createReadinessProbes(
   db: AnyDb,
   now: () => number = Date.now,
 ): Pick<ReadinessProbes, 'probeDatabase' | 'countOverdueJobs'> {
-  const t = jobsTableFor(db)
+  const t = bunderstackJobs
 
   return {
     probeDatabase: async () => {

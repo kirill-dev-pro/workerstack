@@ -8,17 +8,8 @@ import type { DatabaseAdapter } from './adapter'
 
 export function libsql(): DatabaseAdapter {
   return {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect(schema, connection) {
-      if (
-        connection.url.startsWith('postgres://') ||
-        connection.url.startsWith('postgresql://')
-      ) {
-        throw new Error(
-          '[bunderstack] libsql adapter cannot connect to a Postgres URL',
-        )
-      }
       const db = drizzle({ connection, schema })
       return { db: db as never, close: () => db.$client.close() }
     },

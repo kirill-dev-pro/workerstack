@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,22 +7,25 @@ import openapiTS, { astToString } from 'openapi-typescript'
 import ts from 'typescript'
 import * as v from 'valibot'
 
-import { pglite } from '../database/pglite'
+import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
 
-const posts = pgTable('posts', {
+const boolean = (name: string) => integer(name, { mode: 'boolean' })
+const timestamp = (name: string) => integer(name, { mode: 'timestamp' })
+
+const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
 })
 
-const privateNotes = pgTable('private_notes', {
+const privateNotes = sqliteTable('private_notes', {
   id: text('id').primaryKey(),
   content: text('content').notNull(),
 })
 
 // The auth OpenAPI spec is only served when the schema declares better-auth's
 // models, so these are the full tables better-auth validates against.
-const user = pgTable('user', {
+const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
@@ -32,7 +35,7 @@ const user = pgTable('user', {
   updatedAt: timestamp('updated_at').notNull(),
 })
 
-const session = pgTable('session', {
+const session = sqliteTable('session', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   token: text('token').notNull().unique(),
@@ -43,7 +46,7 @@ const session = pgTable('session', {
   updatedAt: timestamp('updated_at').notNull(),
 })
 
-const account = pgTable('account', {
+const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   accountId: text('account_id').notNull(),
@@ -59,7 +62,7 @@ const account = pgTable('account', {
   updatedAt: timestamp('updated_at').notNull(),
 })
 
-const verification = pgTable('verification', {
+const verification = sqliteTable('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
@@ -73,7 +76,7 @@ const schema = { posts, privateNotes, user, session, account, verification }
 async function setupApp() {
   return await bunderstack({
     schema,
-    database: { adapter: pglite() },
+    database: { adapter: libsql(), url: ':memory:' },
     openapi: true,
     storage: {
       local: true,

@@ -1,12 +1,9 @@
 import { test, expect } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
-import { pglite } from '../database/pglite'
-import { createDb } from '../db'
 import { bunderstack } from '../index'
 import { provision } from '../provision-schema'
 
@@ -199,25 +196,12 @@ test('libsql: job handlers enqueue through ctx.jobs inside their own transaction
   expect(await t.app.db.select().from(txEvents)).toEqual([{ id: 'child' }])
 })
 
-test('enqueue rejects a transaction from a different database dialect', async () => {
+test('enqueue rejects a handle that is not a SQLite transaction', async () => {
   const ran: string[] = []
   await using t = await transactionalBackend(ran).test(pushOptions)
-  const marker = pgTable('tx_dialect_marker', { id: pgText('id').primaryKey() })
-  const pg = await createDb(
-    { marker },
-    { url: 'memory://', dialect: 'pg', adapter: pglite() },
-  )
-  try {
-    await pg.db.transaction(async (tx) => {
-      await expect(
-        t.app.jobs.enqueue('record', { id: 'x' }, { tx: tx as never }),
-      ).rejects.toThrow(
-        '[bunderstack] enqueue tx belongs to a different database dialect',
-      )
-    })
-  } finally {
-    await pg.close?.()
-  }
+  await expect(
+    t.app.jobs.enqueue('record', { id: 'x' }, { tx: {} as never }),
+  ).rejects.toThrow('[bunderstack] enqueue tx is not a SQLite transaction')
   expect(await t.jobs.inspect()).toHaveLength(0)
 })
 

@@ -1,13 +1,10 @@
 import { expect, test } from 'bun:test'
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import type { DatabaseAdapter } from '../database/adapter'
 
-import { bunSql } from '../database/bun-sql'
 import { libsql } from '../database/libsql'
-import { pglite } from '../database/pglite'
 import { bunderstack } from '../index'
 
 const notes = sqliteTable('fixture_notes', {
@@ -97,40 +94,37 @@ test('configured fixtures merge defaults, expose setup context, and defer LIFO c
   expect(cleanup).toEqual(['second', 'first'])
 })
 
-test('external adapters refuse production URLs without a strategy', async () => {
-  const pgNotes = pgTable('fixture_notes', {
-    id: pgText('id').primaryKey(),
-  })
-  const backend = bunderstack({
-    schema: { pgNotes },
-    database: { adapter: bunSql() },
-  })
+test('adapters without a test strategy are refused', async () => {
+  const adapter: DatabaseAdapter = {
+    driver: 'libsql',
+    async connect() {
+      throw new Error('must not connect')
+    },
+    async migrate() {},
+  }
+  const backend = bunderstack({ schema: { notes }, database: { adapter } })
 
   await expect(backend.test()).rejects.toThrow(
     /explicit test database strategy/,
   )
 })
 
-test('PGlite fixtures use independent in-memory targets', async () => {
-  const pgNotes = pgTable('fixture_notes', {
-    id: pgText('id').primaryKey(),
-  })
+test('libsql fixtures use independent in-memory targets', async () => {
   const backend = bunderstack({
-    schema: { pgNotes },
-    database: { adapter: pglite() },
+    schema: { notes },
+    database: { adapter: libsql() },
   })
 
   await using a = await backend.test({ database: { schema: 'push' } })
   await using b = await backend.test({ database: { schema: 'push' } })
-  await a.app.db.insert(pgNotes).values({ id: 'only-a' })
+  await a.app.db.insert(notes).values({ id: 'only-a' })
 
-  expect(await b.app.db.select().from(pgNotes)).toEqual([])
+  expect(await b.app.db.select().from(notes)).toEqual([])
 })
 
 test('setup failure disposes its allocated database target once', async () => {
   let disposals = 0
   const adapter: DatabaseAdapter = {
-    dialect: 'sqlite',
     driver: 'libsql',
     async connect() {
       throw new Error('runtime creation failed')

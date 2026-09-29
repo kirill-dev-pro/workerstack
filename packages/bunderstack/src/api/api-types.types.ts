@@ -1,11 +1,11 @@
 import type { InferRouterInputs, InferRouterOutputs } from '@orpc/server'
 
-import { pgTable, text } from 'drizzle-orm/pg-core'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import type { ExposedApiTables } from './types'
 
-import { pglite } from '../database/pglite'
+import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
 
 type Equal<A, B> =
@@ -14,17 +14,17 @@ type Equal<A, B> =
     : false
 type Expect<T extends true> = T
 
-const posts = pgTable('posts', {
+const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
 })
 
-const privateNotes = pgTable('private_notes', {
+const privateNotes = sqliteTable('private_notes', {
   id: text('id').primaryKey(),
   content: text('content').notNull(),
 })
 
-const ownedPosts = pgTable('owned_posts', {
+const ownedPosts = sqliteTable('owned_posts', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
 })
@@ -42,7 +42,7 @@ export type _ImplicitAccessIncludesConventionTable = Expect<
 
 const typedApp = await bunderstack({
   schema: { posts, privateNotes },
-  database: { adapter: pglite() },
+  database: { adapter: libsql(), url: ':memory:' },
   access: {
     posts: { crud: true, list: 'public', create: 'public' },
     privateNotes: { crud: false },

@@ -10,7 +10,7 @@ import type {
   SessionUserSource,
 } from './access'
 import type { BetterAuthConfig } from './config'
-import type { AnyDb, Dialect } from './dialect'
+import type { AnyDb } from './dialect'
 import type { EmailFacade } from './email'
 
 type ConfiguredAuthPlugins<TConfig extends BetterAuthConfig> = TConfig extends {
@@ -44,7 +44,6 @@ export type BunderstackAuth<
 export function createAuth<TConfig extends BetterAuthConfig = BetterAuthConfig>(
   db: AnyDb,
   cfg: BetterAuthConfig,
-  dialect: Dialect,
   userSchema?: Record<string, unknown>,
 ): BunderstackAuth<TConfig> {
   const hasOpenApi = cfg.plugins?.some((p: any) => p.id === 'open-api')
@@ -54,7 +53,7 @@ export function createAuth<TConfig extends BetterAuthConfig = BetterAuthConfig>(
     ...cfg,
     plugins,
     database: drizzleAdapter(db as Parameters<typeof drizzleAdapter>[0], {
-      provider: dialect === 'pg' ? 'pg' : 'sqlite',
+      provider: 'sqlite',
       ...(userSchema ? { schema: userSchema } : {}),
     }),
   }) as unknown as BunderstackAuth<TConfig>
