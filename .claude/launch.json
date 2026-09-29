@@ -4,8 +4,20 @@
     {
       "name": "ssr-probe",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "--cwd", "examples/ssr-probe", "dev"],
+      "runtimeArgs": ["run", "--cwd", "examples/ssr-probe", "dev", "--port", "5174"],
+      "port": 5174
+    },
+    {
+      "name": "todo-solid-native",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "examples/todo-solid-native", "dev"],
       "port": 5173
+    },
+    {
+      "name": "agent-chat",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "examples/agent-chat", "dev", "--port", "3007"],
+      "port": 3007
     }
   ]
 }

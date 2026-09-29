@@ -121,6 +121,8 @@ modules, and CPU time per request is limited.
 
 - [`examples/ssr-probe`](https://github.com/kirill-dev-pro/workerstack/tree/main/examples/ssr-probe) — SSR with TanStack Start
 - [`examples/workers-probe`](https://github.com/kirill-dev-pro/workerstack/tree/main/examples/workers-probe) — SPA
+- [`examples/agent-chat`](https://github.com/kirill-dev-pro/workerstack/tree/main/examples/agent-chat) — an agent chat with durable streaming
+- [`examples/todo-solid-native`](https://github.com/kirill-dev-pro/workerstack/tree/main/examples/todo-solid-native) — Solid
 
 ## Development
 

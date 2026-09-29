@@ -1,0 +1,28 @@
+{
+  "name": "workerstack-example-todo-solid-native",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "workerstack dev",
+    "build": "workerstack build",
+    "wrangler": "workerstack wrangler",
+    "test": "bun test --conditions=browser src/"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@solidjs/web": "2.0.0-rc.0",
+    "better-auth": "^1.0.0",
+    "workerstack": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "solid-js": "2.0.0-rc.0",
+    "valibot": "1.4.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.0",
+    "@solidjs/vite-plugin": "3.0.0-next.28",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^5.0.0",
+    "vite": "^8.0.0",
+    "wrangler": "^4.143.0"
+  }
+}

@@ -11,7 +11,7 @@ description: Use when working in a repository that depends on workerstack - star
 2. Choose the layout from the table below.
 3. For a new app, use TanStack Start with `render: ssr` (the default); an SPA
    sets `render: spa` in the blueprint. A 1.0 SaaS template is not available
-   yet: start from `examples/ssr-probe` (SSR) or `examples/workers-probe`
+   yet: start from `examples/ssr-probe` (SSR) or `examples/todo-solid-native`
    (SPA) in the workerstack repository.
 4. Configure schema, access, auth, env, storage, jobs, realtime, and the oRPC API graph.
 5. Mount the single `app.handler` integration.
