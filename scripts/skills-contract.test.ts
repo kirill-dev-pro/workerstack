@@ -19,7 +19,7 @@ describe('creating-workerstack-apps skill', () => {
 
   test('points new apps to the reference example without embedding it', () => {
     const markdown = readFileSync(resolve(skill, 'SKILL.md'), 'utf8')
-    expect(markdown).toContain('examples/todo-solid-native')
+    expect(markdown).toContain('examples/workers-probe')
     expect(existsSync(resolve(skill, 'assets'))).toBe(false)
   })
 

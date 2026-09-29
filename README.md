@@ -121,8 +121,6 @@ modules, and CPU time per request is limited.
 
 - [`examples/ssr-probe`](examples/ssr-probe) — SSR with TanStack Start
 - [`examples/workers-probe`](examples/workers-probe) — SPA
-- [`examples/agent-chat`](examples/agent-chat) — an agent chat with durable streaming
-- [`examples/todo-solid-native`](examples/todo-solid-native) — Solid
 
 ## Development
 
