@@ -10,13 +10,26 @@ import { registerWorker, rememberWorkerEnv } from './registry'
 import { createSchedulerClass } from './scheduler'
 
 export function createWorker(backend: WorkerstackBackend<any>) {
+  // Without Cron Triggers nothing else starts the alarm chain; after the
+  // first alarm the Scheduler follows app.jobs.nextDueAt on its own.
+  let schedulerStarted = false
+  const startScheduler = (env: WorkerEnv, ctx: ExecutionContextLike) => {
+    if (schedulerStarted || !env.SCHEDULER) return
+    schedulerStarted = true
+    ctx.waitUntil(
+      notifyScheduler(env.SCHEDULER, Date.now()).catch(() => {
+        schedulerStarted = false
+      }),
+    )
+  }
   const handler = {
     async fetch(
       request: Request,
       env: WorkerEnv,
-      _ctx: ExecutionContextLike,
+      ctx: ExecutionContextLike,
     ): Promise<Response> {
       rememberWorkerEnv(env)
+      startScheduler(env, ctx)
       const app = await appFor(backend, env, 'fetch')
       const response = await app.handler(request)
       // A path that reached the Worker but has no route: let the SPA answer.
@@ -37,6 +50,7 @@ export function createWorker(backend: WorkerstackBackend<any>) {
   registerWorker(handler)
   return {
     handler,
+    startScheduler,
     durableObjects: {
       Scheduler: createSchedulerClass(backend),
       RealtimeHub,

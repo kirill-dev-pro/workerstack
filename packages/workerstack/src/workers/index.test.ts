@@ -79,3 +79,30 @@ test('scheduled wakes the Scheduler', async () => {
   await Promise.all(c.pending)
   expect(SCHEDULER.state('main').alarmAt()).toBeGreaterThanOrEqual(before)
 })
+
+test('the first request starts the Scheduler once per isolate', async () => {
+  const worker = createWorker(backendWithJobs())
+  const env: WorkerEnv = { DATABASE_URL: ':memory:' }
+  let notifies = 0
+  const SCHEDULER = createFakeNamespace((state) => {
+    const scheduler = new worker.durableObjects.Scheduler(state, env)
+    return {
+      fetch: (request: Request) => {
+        notifies++
+        return scheduler.fetch(request)
+      },
+    }
+  })
+  env.SCHEDULER = SCHEDULER
+  for (let i = 0; i < 2; i++) {
+    const c = ctx()
+    await worker.handler.fetch(
+      new Request('https://app.test/api/health'),
+      env,
+      c,
+    )
+    await Promise.all(c.pending)
+  }
+  expect(notifies).toBe(1)
+  expect(SCHEDULER.state('main').alarmAt()).not.toBeNull()
+})

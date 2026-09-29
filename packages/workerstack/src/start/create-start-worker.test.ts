@@ -40,3 +40,30 @@ test('routes /api to workerstack, other paths to Start, and registers the Worker
     'Scheduler',
   ])
 })
+
+test('a rendered page starts the Scheduler too', async () => {
+  resetRegistryForTests()
+  const backend = workerstack({
+    schema: {},
+    database: { adapter: { driver: 'libsql' } } as never,
+  })
+  const worker = createStartWorker(backend, async () => new Response('ssr'))
+  const notified: string[] = []
+  const SCHEDULER = {
+    idFromName: (name: string) => name,
+    get: () => ({
+      fetch: async (input: RequestInfo | URL) => {
+        notified.push(new URL(String(input)).pathname)
+        return new Response(null, { status: 204 })
+      },
+    }),
+  }
+  const pending: Promise<unknown>[] = []
+  await worker.handler.fetch(
+    new Request('https://app.example/'),
+    { SCHEDULER } as never,
+    { waitUntil: (p) => void pending.push(p) },
+  )
+  await Promise.all(pending)
+  expect(notified).toHaveLength(1)
+})

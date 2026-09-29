@@ -22,6 +22,7 @@ export function createStartWorker(
     ): Promise<Response> {
       // SSR code in this request calls the API through the registered Worker.
       rememberWorkerEnv(env)
+      worker.startScheduler(env, ctx)
       if (new URL(request.url).pathname.startsWith('/api/')) {
         return worker.handler.fetch(request, env, ctx)
       }

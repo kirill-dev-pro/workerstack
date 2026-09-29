@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.1
+
+- The first request in an isolate starts the Scheduler, so jobs and cron run
+  on hosts that create no Cron Triggers.
+
 ## 0.1.0-beta.0
 
 First release of Workerstack, split from the Workers rewrite of Bunderstack
