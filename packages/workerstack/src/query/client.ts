@@ -1,0 +1,144 @@
+import type { QueryClient } from '@tanstack/query-core'
+
+import type { ApiQueryUtils } from './api'
+import type { AnyWorkerstackApp, InferApiRouter, InferBuckets } from './infer'
+
+import { createApiClient } from './api'
+import { createFetch, type TransportFetch } from './fetch'
+
+export type ClientOptions = {
+  baseUrl?: string
+  fetch?: TransportFetch
+  queryClient?: QueryClient
+}
+
+export type UploadedFile = {
+  fileId: string
+  url: string
+  name: string
+}
+
+export type FileBucketHelpers = {
+  url(idOrFileId: string): string
+  upload(file: File): Promise<UploadedFile>
+  delete(idOrFileId: string): Promise<void>
+}
+
+type FileHelpers<TBuckets extends string> = {
+  files: { [K in TBuckets]: FileBucketHelpers }
+}
+
+export type WorkerstackClient<TApp extends AnyWorkerstackApp> = ApiQueryUtils<
+  InferApiRouter<TApp>
+> &
+  FileHelpers<InferBuckets<TApp>>
+
+function trimSlash(value: string): string {
+  return value.replace(/\/$/, '')
+}
+
+function relativeId(bucket: string, idOrFileId: string): string {
+  const prefix = `${bucket}/`
+  return idOrFileId.startsWith(prefix)
+    ? idOrFileId.slice(prefix.length)
+    : idOrFileId
+}
+
+function encodeFilePath(value: string): string {
+  return value
+    .split('/')
+    .map((segment) =>
+      encodeURIComponent(decodeURIComponent(segment)).replace(/\./g, '%2E'),
+    )
+    .join('/')
+}
+
+function attachFileHelpers<T extends object>(
+  utils: T,
+  options: ClientOptions,
+): T {
+  const baseUrl = trimSlash(options.baseUrl ?? '/api')
+  const fetch = createFetch(options.fetch)
+  const files = (utils as Record<string, unknown>)['files'] as
+    | Record<string, unknown>
+    | undefined
+  if (!files) return utils
+
+  const buckets = new Map<string, unknown>()
+  const filesProxy = new Proxy(files, {
+    get(target, property, receiver) {
+      if (typeof property !== 'string')
+        return Reflect.get(target, property, receiver)
+      const cached = buckets.get(property)
+      if (cached) return cached
+
+      const procedures = Reflect.get(target, property, receiver) as Record<
+        string,
+        { call(input: unknown): Promise<any> }
+      >
+      const root = `${baseUrl}/files/${property}`
+      const url = (idOrFileId: string) =>
+        `${root}/${encodeFilePath(relativeId(property, idOrFileId))}`
+      const upload = async (file: File): Promise<UploadedFile> => {
+        const prepared = await procedures.prepareUpload!.call({
+          filename: file.name,
+          contentType: file.type || undefined,
+        })
+        if (prepared.mode === 'proxy') {
+          const result = await procedures.upload!.call({
+            params: {},
+            query: {},
+            headers: {},
+            body: { file },
+          })
+          return {
+            ...result.body,
+            url: url(result.body.fileId),
+            name: file.name,
+          }
+        }
+
+        const uploaded = await fetch(prepared.uploadUrl, {
+          method: prepared.method,
+          body: file,
+          headers: file.type ? { 'Content-Type': file.type } : undefined,
+        })
+        if (!uploaded.ok) {
+          throw new Error(`File upload failed (${uploaded.status})`)
+        }
+        const result = await procedures.confirmUpload!.call({
+          id: relativeId(property, prepared.fileId),
+        })
+        return { ...result, url: url(result.fileId), name: file.name }
+      }
+
+      const deleteFile = (idOrFileId: string) =>
+        procedures.delete!.call({ path: relativeId(property, idOrFileId) })
+
+      const bucket = Object.assign(Object.create(procedures), {
+        url,
+        upload,
+        delete: deleteFile,
+      })
+      buckets.set(property, bucket)
+      return bucket
+    },
+  })
+
+  return new Proxy(utils, {
+    get(target, property, receiver) {
+      return property === 'files'
+        ? filesProxy
+        : Reflect.get(target, property, receiver)
+    },
+  })
+}
+
+export function createClient<TApp extends AnyWorkerstackApp>(
+  options: ClientOptions = {},
+): WorkerstackClient<TApp> {
+  return attachFileHelpers(
+    createApiClient<InferApiRouter<TApp>>(options),
+    options,
+  ) as WorkerstackClient<TApp>
+}

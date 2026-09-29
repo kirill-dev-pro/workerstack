@@ -17,7 +17,7 @@ export function LoginGate() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <p className="eyebrow">BUNDERSTACK / AGENT EXPERIMENT 01</p>
+        <p className="eyebrow">WORKERSTACK / AGENT EXPERIMENT 01</p>
         <h1>A small agent with a long memory.</h1>
         <p className="login-copy">
           Start instantly, then create tasks, keep preferences, and schedule

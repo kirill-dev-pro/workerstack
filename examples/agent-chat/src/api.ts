@@ -1,6 +1,6 @@
 import { type } from 'arktype'
-import { defineApi } from 'bunderstack'
-import { asTypeId } from 'bunderstack/typeid'
+import { defineApi } from 'workerstack'
+import { asTypeId } from 'workerstack/typeid'
 
 import { resolveApproval, revokeToolGrant } from './agent/approvals'
 import { requestRunCancellation } from './agent/cancellation'

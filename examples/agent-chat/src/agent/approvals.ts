@@ -1,4 +1,4 @@
-import { generateTypeId } from 'bunderstack'
+import { generateTypeId } from 'workerstack'
 import { and, eq } from 'drizzle-orm'
 import { isDeepStrictEqual } from 'node:util'
 

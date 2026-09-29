@@ -1,18 +1,18 @@
 {
-  "name": "bunderstack-example-todo-solid-native",
+  "name": "workerstack-example-todo-solid-native",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bunderstack dev",
-    "build": "bunderstack build",
-    "wrangler": "bunderstack wrangler",
+    "dev": "workerstack dev",
+    "build": "workerstack build",
+    "wrangler": "workerstack wrangler",
     "test": "bun test --conditions=browser src/"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "@solidjs/web": "2.0.0-rc.0",
     "better-auth": "^1.0.0",
-    "bunderstack": "workspace:*",
+    "workerstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "solid-js": "2.0.0-rc.0",
     "valibot": "1.4.2"

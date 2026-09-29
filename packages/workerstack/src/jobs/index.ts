@@ -1,0 +1,43 @@
+// src/jobs/index.ts — module surface consumed by workerstack.
+export {
+  createJobsBuilder,
+  validateBackgroundDefs,
+  validateJobsDefs,
+  DEFAULT_RETRIES,
+  DEFAULT_LEASE_DURATION_MS,
+  DEFAULT_TIMEOUT_MS,
+  leaseDurationFor,
+} from './define'
+export type {
+  AnyJobDefinition,
+  BackgroundTiming,
+  BackgroundDefinition,
+  BackgroundDefs,
+  WorkerstackJobContext,
+  WorkerstackJobsBuilder,
+  DedupeUntil,
+  EnqueueOptions,
+  EnqueueTransaction,
+  JobContext,
+  JobDefinition,
+  QueueJobDefinition,
+  CronDefinition,
+  CronInvocation,
+  QueueJobKeys,
+  TypedEnqueueOptions,
+  JobsDefs,
+  JobsFacade,
+  JobsRuntimeFacade,
+} from './define'
+export { enqueueJob, enqueueTarget, resolveRunAt } from './queue'
+export { createJobRunner } from './worker'
+export { parseCron, cronMatches } from './cron'
+export {
+  slotsDue,
+  floorSlot,
+  nextCronSlot,
+  CRON_PREFIX,
+  SLOT_MS,
+} from './slots'
+export type { CatchUp } from './slots'
+export type { TickResult } from './define'

@@ -1,0 +1,63 @@
+// src/workers/index.ts — `workerstack/workers`: run an app as a Worker on
+// Cloudflare or celld. See the Workers runtime spec for the binding names.
+import type { WorkerstackBackend } from '../backend'
+import type { ExecutionContextLike, WorkerEnv } from './types'
+
+import { appFor, notifyScheduler } from './app'
+import { RateLimiter } from './rate-limiter'
+import { RealtimeHub } from './realtime-hub'
+import { registerWorker, rememberWorkerEnv } from './registry'
+import { createSchedulerClass } from './scheduler'
+
+export function createWorker(backend: WorkerstackBackend<any>) {
+  const handler = {
+    async fetch(
+      request: Request,
+      env: WorkerEnv,
+      _ctx: ExecutionContextLike,
+    ): Promise<Response> {
+      rememberWorkerEnv(env)
+      const app = await appFor(backend, env, 'fetch')
+      const response = await app.handler(request)
+      // A path that reached the Worker but has no route: let the SPA answer.
+      if (response.status === 404 && env.ASSETS)
+        return env.ASSETS.fetch(request)
+      return response
+    },
+    async scheduled(
+      _controller: unknown,
+      env: WorkerEnv,
+      ctx: ExecutionContextLike,
+    ): Promise<void> {
+      if (env.SCHEDULER)
+        ctx.waitUntil(notifyScheduler(env.SCHEDULER, Date.now()))
+    },
+  }
+  // Start server code in this isolate calls the API through it.
+  registerWorker(handler)
+  return {
+    handler,
+    durableObjects: {
+      Scheduler: createSchedulerClass(backend),
+      RealtimeHub,
+      RateLimiter,
+    },
+  }
+}
+
+export {
+  createSchedulerClass,
+  type SchedulerClass,
+  type SchedulerObject,
+} from './scheduler'
+export { HubPublisher, RealtimeHub } from './realtime-hub'
+export {
+  registeredWorker,
+  registerWorker,
+  rememberWorkerEnv,
+  type RegisteredWorker,
+} from './registry'
+export { durableRateLimitStore, RateLimiter } from './rate-limiter'
+export { bucketBindingName, R2StorageAdapter } from './r2'
+export type * from './types'
+export { workerPlanFromBlueprint, type WorkerPlan } from '../worker-plan'

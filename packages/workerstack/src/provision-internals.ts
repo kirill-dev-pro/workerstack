@@ -1,0 +1,28 @@
+import type { Driver } from './db'
+// src/provision-internals.ts
+import type { AnyDb } from './dialect'
+
+/**
+ * Hidden handle connecting `workerstack()` to the optional
+ * `workerstack/provision` entry. Lives in its own module so the main entry
+ * never imports provisioning code.
+ */
+export const PROVISION_INTERNALS: unique symbol = Symbol.for(
+  'workerstack.provision-internals',
+)
+
+export interface ProvisionInternals {
+  /** Runtime db typed over the MERGED schema (user + internal tables). */
+  db: AnyDb
+  /** Merged schema used for push. */
+  schema: Record<string, unknown>
+  databaseUrl: string
+  /** Resolved migrations folder (config `database.migrations`). */
+  migrationsFolder: string
+  driver: Driver
+  adapter: import('./database/adapter').DatabaseAdapter
+}
+
+export interface WithProvisionInternals {
+  [PROVISION_INTERNALS]?: ProvisionInternals
+}

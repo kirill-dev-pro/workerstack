@@ -1,0 +1,84 @@
+import { eventIterator } from '@orpc/server'
+import { expect, test } from 'bun:test'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import * as v from 'valibot'
+
+import { libsql } from '../database/libsql'
+import { workerstack } from '../index'
+import { createClient } from './rpc-client'
+
+const marker = sqliteTable('client_test_marker', {
+  id: text('id').primaryKey(),
+})
+
+async function setupApp() {
+  return workerstack({
+    schema: { marker },
+    database: { adapter: libsql(), url: ':memory:' },
+    api: (o) => ({
+      test: {
+        echo: o.public
+          .input(v.object({ value: v.string() }))
+          .handler(({ input, context }) => ({
+            value: input.value,
+            operationId: context.request.headers.get(
+              'x-workerstack-operation-id',
+            ),
+          })),
+        events: o.public
+          .output(
+            eventIterator(
+              v.object({
+                type: v.literal('snapshot'),
+                items: v.array(v.string()),
+              }),
+            ),
+          )
+          .handler(() =>
+            (async function* () {
+              yield { type: 'snapshot' as const, items: ['typed stream'] }
+            })(),
+          ),
+      },
+    }),
+  }).start({ env: { DATABASE_URL: 'memory://' } })
+}
+
+test('App-inferred client calls oRPC and forwards operation metadata', async () => {
+  const app = await setupApp()
+  const client = createClient<typeof app>({
+    baseUrl: 'http://localhost/api',
+    fetch: (input, init) => app.handler(new Request(input, init)),
+  })
+
+  const result = await client.test.echo(
+    { value: 'No codegen' },
+    { operationId: 'op-123' },
+  )
+
+  expect(result).toEqual({ value: 'No codegen', operationId: 'op-123' })
+  await app.close()
+})
+
+test('client root is not accidentally thenable', async () => {
+  const app = await setupApp()
+  const client = createClient<typeof app>()
+
+  expect((client as { then?: unknown }).then).toBeUndefined()
+  await app.close()
+})
+
+test('App-inferred streaming procedure remains an async iterator', async () => {
+  const app = await setupApp()
+  const client = createClient<typeof app>({
+    baseUrl: 'http://localhost/api',
+    fetch: (input, init) => app.handler(new Request(input, init)),
+  })
+
+  const stream = await client.test.events()
+  expect(await stream.next()).toEqual({
+    done: false,
+    value: { type: 'snapshot', items: ['typed stream'] },
+  })
+  await app.close()
+})

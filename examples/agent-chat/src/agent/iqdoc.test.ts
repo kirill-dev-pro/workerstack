@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test'
-import { generateTypeId, parseTypeId } from 'bunderstack'
+import { generateTypeId, parseTypeId } from 'workerstack'
 
 import type { AgentResponderInput, AgentTools } from './types'
 
@@ -144,7 +144,7 @@ describe('IQdoc responder', () => {
     ).rejects.toThrow('IQDOC_BASE_URL is required when IQdoc is enabled')
   })
 
-  test('uses the IQdoc request contract without exposing Bunderstack tools', async () => {
+  test('uses the IQdoc request contract without exposing Workerstack tools', async () => {
     const threadId = generateTypeId('athread')
     const runId = generateTypeId('arun')
     const textDeltas: string[] = []

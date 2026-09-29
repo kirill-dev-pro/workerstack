@@ -1,4 +1,4 @@
-import { bunderstack } from 'bunderstack/vite'
+import { workerstack } from 'workerstack/vite'
 import { defineConfig } from 'vite'
 
-export default defineConfig({ plugins: [bunderstack()] })
+export default defineConfig({ plugins: [workerstack()] })

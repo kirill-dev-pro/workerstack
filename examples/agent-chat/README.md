@@ -1,8 +1,8 @@
 # Agent Chat
 
-A deliberately small, app-local experiment in building a durable, declarative personal agent on Bunderstack. The user talks to one long-lived agent that manages their task list, remembers facts and preferences, executes durable scheduled commitments (notifications, exact tool calls, and autonomous objectives), and requests explicit user approval for destructive actions.
+A deliberately small, app-local experiment in building a durable, declarative personal agent on Workerstack. The user talks to one long-lived agent that manages their task list, remembers facts and preferences, executes durable scheduled commitments (notifications, exact tool calls, and autonomous objectives), and requests explicit user approval for destructive actions.
 
-The example is an incubation space, not a proposed public Bunderstack API. Its purpose is to explore and validate recurring agent primitives before deciding which abstractions deserve to become framework features.
+The example is an incubation space, not a proposed public Workerstack API. Its purpose is to explore and validate recurring agent primitives before deciding which abstractions deserve to become framework features.
 
 ## Quick Start
 
@@ -21,7 +21,7 @@ Run the example:
 bun run dev:agent-chat
 ```
 
-`bunderstack dev` starts sqld, celld with the Worker, and Vite. On first run it
+`workerstack dev` starts sqld, celld with the Worker, and Vite. On first run it
 downloads pinned local binaries. Open the URL Vite prints. The Worker handles
 the API, jobs, and realtime updates; Vite serves the SPA. `bun run build`
 creates `dist/client`, and `bun run wrangler` regenerates `wrangler.json`.
@@ -51,7 +51,7 @@ To use an AI provider, choose it with `AI_PROVIDER`:
   `IQDOC_API_KEY`, `IQDOC_BASE_URL`, and optionally `IQDOC_MODEL` (default
   `assistant_auto`). IQdoc authenticates with `X-Api-Key`; the adapter sends
   stable UUID-shaped chat and message correlation headers decoded from the
-  Bunderstack thread and run TypeIDs.
+  Workerstack thread and run TypeIDs.
 
 Supported IQdoc model IDs are `assistant_auto`, `pubmed_assistant_fast`,
 `clinrec_assistant_fast`, `standart_assistant_fast`, `esmo_assistant_fast`,
@@ -112,7 +112,7 @@ The implementation separates core concerns into explicit, app-local boundaries:
 
 ### 6. Durable Streaming and Recovery (`src/agent/run-recorder.ts`, `src/hooks/useAgentChat.ts`)
 
-Message submission and message observation are deliberately separate. `sendMessage` is an idempotent command: it atomically stores the user message, a queued run, and an empty server-owned assistant draft, then returns `202`. It never owns the provider response stream. The browser observes canonical `agentMessages`, `agentRuns`, and `agentRunSteps` rows through ordinary Bunderstack queries and realtime updates.
+Message submission and message observation are deliberately separate. `sendMessage` is an idempotent command: it atomically stores the user message, a queued run, and an empty server-owned assistant draft, then returns `202`. It never owns the provider response stream. The browser observes canonical `agentMessages`, `agentRuns`, and `agentRunSteps` rows through ordinary Workerstack queries and realtime updates.
 
 The worker consumes the AI provider stream and persists the complete assistant draft immediately on the first delta, at most once per 150 ms while text is flowing, and once more at completion. Every snapshot has a monotonically increasing `revision`; the client rejects late lower revisions and only animates toward accepted snapshots. Consequently:
 
@@ -162,7 +162,7 @@ The recovery guarantee in this experiment covers loss of the connection between 
 
 To keep the experiment focused, this example deliberately does **not** include:
 
-- A public framework-level `agent` config key or `@bunderstack/agent` package export.
+- A public framework-level `agent` config key or `@workerstack/agent` package export.
 - Spaces, organizations, memberships, or multi-agent delegation.
 - Raw SQL access or automatic CRUD-to-tool generation for the model.
 - Vector databases or semantic retrieval pipelines.

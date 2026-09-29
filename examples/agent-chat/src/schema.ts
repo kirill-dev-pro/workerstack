@@ -1,4 +1,4 @@
-import { generateTypeId, typeid } from 'bunderstack'
+import { generateTypeId, typeid } from 'workerstack'
 import { sql } from 'drizzle-orm'
 import {
   index,
@@ -8,7 +8,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
-export * from 'bunderstack/schema'
+export * from 'workerstack/schema'
 
 export const user = sqliteTable('user', {
   id: typeid('user')

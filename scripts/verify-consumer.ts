@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const repoRoot = new URL('..', import.meta.url).pathname
-const PACKAGES = ['bunderstack'] as const
+const PACKAGES = ['workerstack'] as const
 
 async function run(
   cmd: string[],
@@ -30,13 +30,13 @@ async function run(
   return { code: await proc.exited, out: out + err }
 }
 
-const workDir = await mkdtemp(join(tmpdir(), 'bunderstack-consumer-'))
+const workDir = await mkdtemp(join(tmpdir(), 'workerstack-consumer-'))
 const keep = process.argv.includes('--keep')
 console.log(`workdir ${workDir}`)
 
 const version = (
   (await Bun.file(
-    join(repoRoot, 'packages/bunderstack/package.json'),
+    join(repoRoot, 'packages/workerstack/package.json'),
   ).json()) as {
     version: string
   }
@@ -202,9 +202,9 @@ export const creditBalances = sqliteTable('credit_balances', {
 
 await writeFile(
   join(app, 'src/app.ts'),
-  `import { bunderstack, defineAuth, type ApiContext } from 'bunderstack'
-import { libsql } from 'bunderstack/libsql'
-import { generate } from 'bunderstack/typeid'
+  `import { workerstack, defineAuth, type ApiContext } from 'workerstack'
+import { libsql } from 'workerstack/libsql'
+import { generate } from 'workerstack/typeid'
 import { os } from '@orpc/server'
 import { admin, mcp, organization } from 'better-auth/plugins'
 import { twoFactor } from 'better-auth/plugins/two-factor'
@@ -228,7 +228,7 @@ const authConfig = defineAuth({
   ],
 })
 
-export const backend = bunderstack({
+export const backend = workerstack({
   schema,
   database: { adapter: libsql() },
   auth: authConfig,
@@ -272,17 +272,17 @@ await writeFile(
   `import {
   createClient as createCoreClient,
   createLiveView,
-} from 'bunderstack/client'
-import { createRestClient, type RouteOperation } from 'bunderstack/client-rest'
-import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
-import { createLiveStore } from 'bunderstack/client-solid'
-import { liveStore } from 'bunderstack/client-svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
-import { createClient } from 'bunderstack/query'
-import { createSyncClient } from 'bunderstack/sync'
-import { bunderstackStart } from 'bunderstack/start'
-import { createStartAuthClient } from 'bunderstack/start-auth'
-import type { TestFixture } from 'bunderstack/testing'
+} from 'workerstack/client'
+import { createRestClient, type RouteOperation } from 'workerstack/client-rest'
+import { useLiveView as useReactLiveView } from 'workerstack/client-react'
+import { createLiveStore } from 'workerstack/client-solid'
+import { liveStore } from 'workerstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'workerstack/client-vue'
+import { createClient } from 'workerstack/query'
+import { createSyncClient } from 'workerstack/sync'
+import { workerstackStart } from 'workerstack/start'
+import { createStartAuthClient } from 'workerstack/start-auth'
+import type { TestFixture } from 'workerstack/testing'
 import { QueryClient } from '@tanstack/react-query'
 
 import type { App } from './app'
@@ -323,7 +323,7 @@ export const feed = sync.creditBalances.scopedCollection({
   filters: { userId: 'u1' },
 })
 
-export const startSetup = bunderstackStart<App>()
+export const startSetup = workerstackStart<App>()
 export const authClient = createStartAuthClient()
 
 export async function realtime(): Promise<void> {
@@ -342,21 +342,21 @@ const diagnostics = tsc.out
 // Our declarations are the contract under test. Other vendors' `.d.ts` files
 // are noise here — nobody typechecks node_modules without `skipLibCheck`, and
 // drizzle-orm alone reports dozens for its mysql/gel drivers.
-const fromBunderstack = diagnostics.filter((line) =>
-  /node_modules\/bunderstack\//.test(line),
+const fromWorkerstack = diagnostics.filter((line) =>
+  /node_modules\/workerstack\//.test(line),
 )
 const fromOtherVendors = diagnostics.filter(
-  (line) => line.includes('node_modules') && !fromBunderstack.includes(line),
+  (line) => line.includes('node_modules') && !fromWorkerstack.includes(line),
 )
 const fromApp = diagnostics.filter((line) => !line.includes('node_modules'))
 
 console.log(`\ndiagnostics: ${diagnostics.length}`)
-console.log(`  from bunderstack packages: ${fromBunderstack.length}`)
+console.log(`  from workerstack packages: ${fromWorkerstack.length}`)
 console.log(
   `  from other vendors:        ${fromOtherVendors.length} (not ours; suppressed by skipLibCheck)`,
 )
 console.log(`  from app code:             ${fromApp.length}`)
-for (const line of [...fromBunderstack, ...fromApp].slice(0, 30)) {
+for (const line of [...fromWorkerstack, ...fromApp].slice(0, 30)) {
   console.log(`  ${line}`)
 }
 
@@ -376,10 +376,10 @@ console.log(`\nruntime smoke: ${smokeLine ?? smoke.out.trim()}`)
 if (!keep) await rm(workDir, { recursive: true, force: true })
 
 if (
-  fromBunderstack.length > 0 ||
+  fromWorkerstack.length > 0 ||
   fromApp.length > 0 ||
   smokeLine !== 'handler:function'
 ) {
   throw new Error('consumer verification failed')
 }
-console.log('\nconsumer sees zero errors from bunderstack')
+console.log('\nconsumer sees zero errors from workerstack')

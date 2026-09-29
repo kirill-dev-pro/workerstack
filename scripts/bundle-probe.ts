@@ -5,7 +5,7 @@
  * test breaks bare-specifier resolution for every file in the built file's own
  * package that the test runner loads afterwards — so `bun test` at the repo
  * root fails to import '@tanstack/query-core', '@orpc/client', 'better-auth' &
- * co. from bunderstack-query/-start. Building out-of-process keeps the damage
+ * co. from workerstack-query/-start. Building out-of-process keeps the damage
  * in a process we are about to throw away.
  */
 import { join } from 'node:path'

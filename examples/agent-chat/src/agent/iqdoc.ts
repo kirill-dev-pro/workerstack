@@ -1,6 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { streamText, type ModelMessage } from 'ai'
-import { parseTypeId } from 'bunderstack'
+import { parseTypeId } from 'workerstack'
 
 import type { AgentResponder } from './types'
 

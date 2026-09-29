@@ -1,4 +1,4 @@
-.bunderstack/
+.workerstack/
 .wrangler/
 .dev.vars
 wrangler.json

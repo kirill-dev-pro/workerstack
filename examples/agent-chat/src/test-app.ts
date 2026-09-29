@@ -1,6 +1,6 @@
 import { type } from 'arktype'
-import { bunderstack, generateTypeId } from 'bunderstack'
-import { libsql } from 'bunderstack/libsql'
+import { workerstack, generateTypeId } from 'workerstack'
+import { libsql } from 'workerstack/libsql'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
@@ -20,7 +20,7 @@ export interface TestApp {
 }
 
 export async function createTestApp(): Promise<TestApp> {
-  const backend = bunderstack({
+  const backend = workerstack({
     schema,
     access,
     database: { adapter: libsql() },

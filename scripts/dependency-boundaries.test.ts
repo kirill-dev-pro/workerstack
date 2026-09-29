@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const repoRoot = join(import.meta.dir, '..')
-const packages = ['bunderstack'] as const
+const packages = ['workerstack'] as const
 
 async function sourceFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -28,7 +28,7 @@ describe('published dependency boundaries', () => {
       /drizzle-zod/,
       /@orpc\/zod/,
       /createRealtimeClient/,
-      /createBunderstackQueryClient/,
+      /createWorkerstackQueryClient/,
     ]
 
     for (const name of packages) {
@@ -52,7 +52,7 @@ describe('published dependency boundaries', () => {
     // only under Bun. Everything else must run in workerd and celld.
     const allowed = [
       /\/src\/cli(-skills)?\.ts$/,
-      /\/src\/dev\//, // bunderstack dev and build
+      /\/src\/dev\//, // workerstack dev and build
       /\/src\/blueprint-generator\.ts$/,
       /\/src\/provision-runtime\.ts$/,
       /\/src\/storage\/local\.ts$/,
@@ -63,7 +63,7 @@ describe('published dependency boundaries', () => {
     const forbidden = [/\bBun\.[A-Za-z]/, /from ['"]bun['"]/]
     const offenders: string[] = []
     for (const path of await sourceFiles(
-      join(repoRoot, 'packages', 'bunderstack', 'src'),
+      join(repoRoot, 'packages', 'workerstack', 'src'),
     )) {
       if (allowed.some((pattern) => pattern.test(path))) continue
       const source = await Bun.file(path).text()
@@ -112,13 +112,13 @@ describe('published dependency boundaries', () => {
 
   test('client roots do not import server implementations or optional auth', async () => {
     const query = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/query/index.ts'),
+      join(repoRoot, 'packages/workerstack/src/query/index.ts'),
     ).text()
-    expect(query).not.toMatch(/from ['"](?:bunderstack(?:\/|['"])|better-auth)/)
+    expect(query).not.toMatch(/from ['"](?:workerstack(?:\/|['"])|better-auth)/)
     expect(query).not.toMatch(/from ['"]\.\.\/index/)
 
     const start = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/start/index.ts'),
+      join(repoRoot, 'packages/workerstack/src/start/index.ts'),
     ).text()
     expect(start).not.toMatch(/from ['"]better-auth/)
     expect(start).not.toContain('export { createStartAuthClient }')
@@ -126,13 +126,13 @@ describe('published dependency boundaries', () => {
 
   test('testing is an explicit subpath instead of a root wildcard', async () => {
     const testing = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/testing.ts'),
+      join(repoRoot, 'packages/workerstack/src/testing.ts'),
     ).text()
     const root = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/index.ts'),
+      join(repoRoot, 'packages/workerstack/src/index.ts'),
     ).text()
     const runtime = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/runtime.ts'),
+      join(repoRoot, 'packages/workerstack/src/runtime.ts'),
     ).text()
 
     expect(testing).not.toMatch(
@@ -144,7 +144,7 @@ describe('published dependency boundaries', () => {
 
   test('query client keeps QueryClient type-only and framework-neutral', async () => {
     const source = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/src/query/client.ts'),
+      join(repoRoot, 'packages/workerstack/src/query/client.ts'),
     ).text()
 
     expect(source).toContain(
@@ -167,7 +167,7 @@ describe('published dependency boundaries', () => {
     }
 
     const core = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/package.json'),
+      join(repoRoot, 'packages/workerstack/package.json'),
     ).json()
     expect(core.peerDependencies['better-auth']).toBe('^1.0.0')
     expect(core.peerDependencies['drizzle-orm']).toBeDefined()
@@ -177,17 +177,17 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['@orpc/valibot']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['drizzle-valibot']).toBeDefined()
 
-    expect(core.peerDependencies['@electric-sql/pglite']).toBeDefined()
+    expect(core.peerDependencies['@electric-sql/pglite']).toBeUndefined()
+    expect(core.peerDependencies['postgres']).toBeUndefined()
     expect(core.peerDependencies['@libsql/client']).toBeDefined()
     expect(core.peerDependencies['drizzle-kit']).toBeDefined()
     expect(core.peerDependencies['nodemailer']).toBe('>=6 <10')
-    expect(core.peerDependencies['postgres']).toBeDefined()
 
     expect(Object.keys(core.dependencies).sort()).toEqual([
       '@noble/hashes',
       '@standard-schema/spec',
       '@standardserver/core',
-      // celld bundles the Worker with it under `bunderstack dev`.
+      // celld bundles the Worker with it under `workerstack dev`.
       'esbuild',
       'valibot',
       'yaml',
@@ -203,9 +203,9 @@ describe('published dependency boundaries', () => {
     expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')
   })
 
-  test('bunderstack peer metadata matches runtime import boundaries', async () => {
+  test('workerstack peer metadata matches runtime import boundaries', async () => {
     const pkg = await Bun.file(
-      join(repoRoot, 'packages/bunderstack/package.json'),
+      join(repoRoot, 'packages/workerstack/package.json'),
     ).json()
 
     expect(pkg.peerDependencies['better-auth']).toBe('^1.0.0')

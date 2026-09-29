@@ -1,8 +1,8 @@
-import { createClient, createLiveView } from 'bunderstack/client'
-import { createLiveStore } from 'bunderstack/client-solid'
+import { createClient, createLiveView } from 'workerstack/client'
+import { createLiveStore } from 'workerstack/client-solid'
 import { action, createOptimisticStore, onCleanup } from 'solid-js'
 
-import type { App } from '../bunderstack'
+import type { App } from '../workerstack'
 
 const api = createClient<App>()
 
@@ -21,7 +21,7 @@ export type TodoStore = ReturnType<typeof createTodoStore>
 export const isTemporaryTodo = (todo: Todo) => todo.id.startsWith('pending:')
 
 /**
- * The app-specific layer is now deliberately small: Bunderstack owns the
+ * The app-specific layer is now deliberately small: Workerstack owns the
  * confirmed LiveView and transport lifecycle; Solid owns speculative state.
  */
 export function createTodoStore(todoApi: TodoApi = api) {

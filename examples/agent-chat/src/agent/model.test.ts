@@ -1,6 +1,6 @@
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test'
 import { describe, expect, mock, test } from 'bun:test'
-import { generateTypeId } from 'bunderstack'
+import { generateTypeId } from 'workerstack'
 import { z } from 'zod'
 
 import type { AgentResponderInput, AgentTools } from './types'

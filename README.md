@@ -1,335 +1,137 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="bunderstack logo" width="128" />
-</p>
+# workerstack
 
-# bunderstack
+A full-stack framework for Cloudflare Workers. One declaration describes the
+database, auth, API, file buckets, jobs, cron, realtime, and rate limits; the
+TanStack Start app renders on the server in the same Worker.
 
-**Your whole backend as a single file declaration.** Database, auth, CRUD,
-storage, jobs, messaging, and realtime are keys on one object. `bun run dev` starts
-all of it with nothing to configure. Small enough to fit in your agent's
-context, and in your head.
-
-- **One place to look.** Every facility is a key, not a service to stand up.
-  Turning on file uploads is a `storage` key; turning on realtime is
-  `realtime: true`. There is no wiring between them to write, and no dashboard
-  holding the other half of the answer.
-- **No local setup.** No docker-compose, no local Postgres, no S3 emulator, no
-  queue broker, no auth service to point at. One command, one process.
-- **The dev/prod gap is a config value.** Storage moves from disk to S3, the
-  database from SQLite to Postgres, a messaging channel from capture to a real
-  sender.
-  The code that uses them does not change.
-- **Small enough for an agent to read all of it.** The backend of the
-  [todo example](examples/todo) is 439 lines across five files — accounts,
-  generated CRUD with access rules, uploads with resizing, a cron job,
-  transactional email, and a live stream. An agent can read the whole system
-  before it changes any of it.
-
-Everything is inferred from that one declaration, so the HTTP API, the typed
-client, and the realtime stream cannot drift apart — there is no second copy of
-the contract to keep honest. The application exposes one Web Standard
-`Request → Response` handler.
+Workerstack started as the Workers rewrite of Bunderstack. Bunderstack 0.x
+stays the choice for apps that need a long-running Bun process (a headless
+browser, native database drivers, large files in memory).
 
 ```sh
-bun add bunderstack better-auth drizzle-orm valibot @libsql/client
-bun add -d drizzle-kit
+bun add workerstack better-auth drizzle-orm valibot @libsql/client
+bun add -d vite wrangler @cloudflare/vite-plugin drizzle-kit
 ```
 
+## The backend
+
 ```ts
-import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision-schema'
+// src/workerstack.ts
+import { workerstack } from 'workerstack'
+import { defineAccess } from 'workerstack/access'
+import { libsql } from 'workerstack/libsql'
 import * as v from 'valibot'
+
 import * as schema from './schema'
 
-export const backend = bunderstack({
+export const backend = workerstack({
   schema,
   database: { adapter: libsql() },
-  auth: { emailAndPassword: { enabled: true } },
-  access: {
-    posts: {
-      ownerColumn: 'userId',
-      list: 'public',
-      get: 'public',
-      create: 'authenticated',
-      update: 'owner',
-      delete: 'owner',
-    },
-  },
+  access: defineAccess(schema, {
+    notes: { crud: true, list: 'authenticated', create: 'authenticated' },
+  }),
+  auth: ({ env }) => ({
+    baseURL: env.APP_URL,
+    emailAndPassword: { enabled: true },
+  }),
+  storage: { buckets: { media: { upload: { maxSize: '5mb' } } } },
   realtime: true,
-  api: (o) => ({
-    greeting: o.public
-      .route({ method: 'GET', path: '/api/greeting' })
-      .input(v.object({ name: v.string() }))
-      .handler(({ input }) => ({ message: `Hello, ${input.name}` })),
-  }),
-})
-
-export const app = await backend.start()
-
-await provision(app)
-Bun.serve({ fetch: app.handler })
-
-export type App = typeof app
-```
-
-The quickstart uses the development-only schema-push entrypoint. Before
-deployment, generate and commit the Drizzle migration journal and switch the
-import to `bunderstack/provision`; that production entrypoint is migration-only
-and never imports Drizzle Kit.
-
-## Package Architecture (0.21+)
-
-All capabilities are unified in the single `bunderstack` package. Import client, query, sync, and start tools via subpaths:
-
-```ts
-import { createClient } from 'bunderstack/client' // Framework-neutral RPC & LiveView
-import {
-  createClient as createQueryClient,
-  syncRealtime,
-} from 'bunderstack/query' // TanStack Query
-import { createSyncClient } from 'bunderstack/sync' // TanStack DB collections
-import { bunderstackStart } from 'bunderstack/start' // TanStack Start full-stack helpers
-```
-
-## One API graph
-
-The graph is a consequence of the declaration, not a thing you assemble.
-
-Every generated table has `list`, `get`, `create`, `update`, and `delete`
-procedures. Application procedures declared under `api` join those procedures,
-file buckets, health, and `realtime.changes` in the same router. The graph is
-available through both `/api/rpc/*` and routed HTTP projections declared with
-`.route(...)`.
-
-There is no framework router to compose and no separate custom-procedure
-client. Better Auth keeps its provider-defined `/api/auth/*` routes; everything
-else is dispatched by Bunderstack's Web Standard handler.
-
-```ts
-import { QueryClient, useQuery } from '@tanstack/react-query'
-import { createClient } from 'bunderstack/query'
-import type { App } from './bunderstack'
-
-export const queryClient = new QueryClient()
-export const api = createClient<App>({ queryClient })
-
-const posts = useQuery(
-  api.posts.list.queryOptions({
-    input: { limit: 20, sort: 'createdAt', order: 'desc' },
-  }),
-)
-
-// CRUD update uses direct flat inputs
-await api.posts.update.call({ id: 'post_123', title: 'Updated Title' })
-await api.posts.create.call({ title: 'Typed end to end' })
-await api.greeting.call({ name: 'Ada' })
-```
-
-Handler return inference is the usual output contract. Add `.output(schema)`
-when runtime output validation, exact OpenAPI output, binary/detailed output,
-or an event iterator requires it.
-
-## Standard Schema validation
-
-Public validation slots accept the Standard Schema interface. Valibot is the
-default and is used internally, but another compatible schema library can be
-used for application inputs. Boot-time env and job validation must be
-synchronous.
-
-```ts
-env: {
-  server: { API_KEY: v.pipe(v.string(), v.minLength(1)) },
-  client: { PUBLIC_APP_NAME: v.optional(v.string(), 'My app') },
-}
-```
-
-## Webhooks
-
-A webhook is an ordinary routed oRPC procedure on the unauthenticated
-`o.webhook` base. It supports provider-specific POST paths and typed payloads
-without another router.
-
-```ts
-api: (o) => ({
-  stripeWebhook: o.webhook
-    .route({ method: 'POST', path: '/api/webhooks/stripe' })
-    .input(stripeEventSchema)
-    .handler(async ({ input, context }) => {
-      // For signature schemes that require the exact bytes:
-      const rawBody = await context.getRawBody()
-      await handleStripeEvent(input, rawBody)
-      return { received: true }
+  rateLimit: { windowMs: 60_000, max: 100 },
+  jobs: (j) =>
+    j.define({
+      noteCreated: j.job({
+        input: v.object({ noteId: v.string() }),
+        handler: async (input, ctx) => {
+          /* ... */
+        },
+      }),
+      nightly: j.cron({ schedule: '0 3 * * *', handler: async () => {} }),
     }),
-})
-```
-
-`context.getRawBody()` is lazy and memoized, so signature verification sees
-the original bytes. `o.protected` is available for session-authenticated
-procedures; all procedure failures use the shared typed Bunderstack error map.
-
-## Realtime with oRPC Publisher
-
-CRUD writes publish access-filtered row changes automatically. Custom writes
-publish the complete returned row after the transaction commits:
-
-```ts
-await context.realtime.publish(schema.posts, 'update', post)
-```
-
-The client consumes the typed `realtime.changes` async iterator. Publisher
-metadata carries event IDs, resumable delivery, and reconnect state; there is
-no client registration or separate subscription POST protocol.
-
-Idle streams carry a transport-only `heartbeat` every five seconds so Bun and
-intermediate HTTP servers keep the response open. The query client monitors
-heartbeats and automatically reconnects if the connection drops.
-
-```ts
-import { syncRealtime } from 'bunderstack/query'
-
-const realtime = syncRealtime({
-  api,
-  queryClient,
-  tables: ['posts', 'comments'],
-  notifyScheduler: 'frame', // batches cache flushes via requestAnimationFrame
-  apply: 'patch', // patches cached list queries in-place
+  api: (o) => ({
+    ping: o.public
+      .route({ method: 'GET', path: '/api/ping' })
+      .handler(() => ({ ok: true })),
+  }),
 })
 
-realtime.close()
+export type App = Awaited<ReturnType<typeof backend.start>>
 ```
-
-`realtime: true` uses the in-memory Publisher. Use
-`realtime: { redis: process.env.REDIS_URL! }` when web and worker processes or
-multiple instances must share events. `app.realtime.transport` reports
-`disabled`, `memory`, or `redis`.
-
-## Live views
-
-`GET /api/live/{table}` is one list query as a stream. It opens with a snapshot
-of the result and then sends only the changes that belong to that result: the
-server decides membership against the view's filters and places every row, so
-the browser holds no cache and never repeats the sort.
 
 ```ts
-import { createLiveView } from 'bunderstack/client'
+// vite.config.ts — SSR with TanStack Start by default.
+import viteReact from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+import { workerstack } from 'workerstack/vite'
 
-const view = createLiveView<Todo>('/api/live/todos', {
-  input: { sort: 'createdAt', order: 'desc', limit: 100 },
-})
-
-view.subscribe(() => render(view.getRows(), view.getStatus()))
-view.patch((rows) => {
-  rows[0] = { ...rows[0], done: true } // optimistic; the echo replaces it
-})
-view.close()
+export default defineConfig({ plugins: [workerstack(), viteReact()] })
 ```
-
-`bunderstack/client` has no dependencies and no framework binding. Native UI bindings are available for React (`bunderstack/client-react`), Solid (`bunderstack/client-solid`), Vue (`bunderstack/client-vue`), and Svelte (`bunderstack/client-svelte`).
-
-## Files
-
-Configured buckets are generated under `api.files.<bucket>` and have typed
-upload, download, confirmation, and deletion procedures:
 
 ```ts
-const uploaded = await api.files.avatars.upload(file)
-const url = api.files.avatars.url(uploaded.fileId, { w: 160, format: 'webp' })
-await api.files.avatars.delete(uploaded.fileId)
+// src/api.ts — one client for loaders, server functions, and the browser.
+import { workerstackStart } from 'workerstack/start'
+
+import type { App } from './workerstack'
+
+export const { createQueryClient, createApi } = workerstackStart<App>()
 ```
 
-## Message journal
+On the server the client calls the backend inside the same isolate and
+forwards the request cookie; in the browser it calls `/api` over HTTP.
 
-Every declared channel records what it sends in `_bunderstack_messages`.
-Without credentials a channel captures: the row is written, the message is
-printed locally, and nothing is delivered. With Resend, SMTP, Telegram, or a
-custom adapter, the same row advances through sending and provider delivery
-states, and `_bunderstack_message_events` keeps the provider event history.
-Managed Bunderhost deployments can supply provider credentials without putting
-keys in application code.
-
-## Optional OpenAPI
-
-Set `openapi: true` to serve `/api/openapi.json`. It is intentionally optional:
-the native oRPC graph and its TypeScript client work without a JSON Schema
-converter. Routed procedures are also convenient for generated mobile clients
-and third-party HTTP integrations.
-
-## TanStack DB collections
-
-`bunderstack/sync` layers optimistic TanStack DB collections over the same
-oRPC client:
-
-```ts
-import { createSyncClient } from 'bunderstack/sync'
-
-const sync = createSyncClient<App>({ queryClient })
-const posts = sync.posts.collection
-const feed = sync.posts.scopedCollection({
-  filters: { replyToId: null },
-  sort: 'createdAt',
-  order: 'desc',
-})
-await feed.loadMore()
-```
-
-Generated CRUD returns the canonical changed row. `bunderstack/sync` writes
-that response into every materialized view without a follow-up list refetch;
-the later realtime echo is an idempotent confirmation. Updates to the same row
-are coalesced while a request is in flight, which keeps cursor-like optimistic
-writes responsive without building a request queue in application code.
-
-## Deployment and lifecycle
-
-Generate and commit the provider-neutral deployment contract with:
+## Commands
 
 ```sh
-bunx bunderstack blueprint
-bunx bunderstack blueprint --check
+bunx workerstack dev        # sqld + Vite on workerd, the production runtime
+bunx workerstack build      # dist/server/index.js and dist/client
+bunx workerstack blueprint  # writes workerstack.blueprint.yaml
+bunx workerstack wrangler   # writes wrangler.json from the blueprint
 ```
 
-### Production container contract
+`workerstack.blueprint.yaml` is the single source of truth for hosting: the
+database, buckets, Durable Objects (Scheduler, RealtimeHub, RateLimiter), cron,
+and the Worker entry. `wrangler.json` is generated from it. Commit the
+blueprint and the Drizzle migrations; a host deploys from them.
 
-Bunderstack does not require a particular Dockerfile layout. A production
-image must:
+## Runtime
 
-- contain the built server and production dependencies;
-- include any operating-system packages the application needs;
-- start the application using its image command (`bun dist/server/server.js`);
-- listen on `0.0.0.0` and the hosting platform's `PORT`;
-- expose the application's `/api/health` route;
-- receive database, storage, auth, and application configuration at runtime;
-- run jobs and cron in-process unless the host deliberately selects another
-  supported `BUNDERSTACK_ROLE`.
+- Database: SQLite through libsql. Locally `workerstack dev` starts sqld;
+  hosted apps use Turso.
+- Files: R2 bindings, one per declared bucket.
+- Jobs and cron: a Scheduler Durable Object wakes on alarms; there is no
+  worker process.
+- Realtime: a RealtimeHub Durable Object fans writes out to subscribers.
+- Rate limits: a RateLimiter Durable Object.
 
-For TanStack Start and Bun full-stack applications, add `src/server.ts` to serve static assets from `dist/client` in production.
+Code runs in a Worker isolate: no file system, no child processes, no native
+modules, and CPU time per request is limited.
 
-[Bunderhost](https://github.com/kirill-dev-pro/bunderhost#custom-application-image)
-generates a standard production image by default. When an application needs OS
-packages such as Chromium or custom image construction, Bunderhost instead uses
-a committed repository-root `Dockerfile.bunderhost` unchanged.
+## Package subpaths
 
-Examples live in [`examples`](./examples), including Agent Chat, Todo, Twitter, Kanban,
-TanStack DB, and tldraw applications.
+- `workerstack` — `workerstack()`, the backend declaration
+- `workerstack/access`, `workerstack/schema`, `workerstack/typeid`, `workerstack/env`
+- `workerstack/libsql` — the database adapter
+- `workerstack/vite`, `workerstack/start`, `workerstack/start-auth` — the Vite plugin and TanStack Start integration
+- `workerstack/workers` — Worker entry helpers and the Durable Object classes
+- `workerstack/client*`, `workerstack/query*`, `workerstack/sync`, `workerstack/live` — clients
+- `workerstack/messaging`, `workerstack/email-smtp` — messaging channels
+- `workerstack/testing` — `backend.test()` fixtures for `bun test`
+- `workerstack/blueprint` — the blueprint schema, for hosts
 
-## Migration Guides
+## Examples
 
-- [Migrating to 0.24](docs/MIGRATION-0.24.md) — Env-first declarations, `backend.inspect()`, and the messaging registry.
-- [Migrating to 0.22](docs/MIGRATION-0.22.md) — Declaration/runtime split, flat subpath exports, and testing fixtures.
-- [Migrating to 0.21](docs/MIGRATION-0.21.md) — Single-package consolidation, subpath exports, direct CRUD inputs, and production server entry.
-- [Migrating to 0.17](docs/MIGRATION-0.17.md) — Unified oRPC procedure graph, Standard Schema, and typed filters.
-- [Migrating to 0.16](docs/MIGRATION-0.16.md) — Initial module-scope API builders and runtime contracts.
+- [`examples/ssr-probe`](examples/ssr-probe) — SSR with TanStack Start
+- [`examples/workers-probe`](examples/workers-probe) — SPA
+- [`examples/agent-chat`](examples/agent-chat) — an agent chat with durable streaming
+- [`examples/todo-solid-native`](examples/todo-solid-native) — Solid
 
 ## Development
 
 ```sh
 bun install
-bun run test
+bun run test            # package and repository tests
+bun run test:workers    # builds the probes and runs them on celld (-- --runtime workerd for workerd)
 bun run typecheck:all
 ```
-
-Every notable user-facing change must update the root `[Unreleased]` section
-of [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## License
 

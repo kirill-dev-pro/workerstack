@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Builds examples/workers-probe (SPA) and examples/ssr-probe (SSR) with
-// `bunderstack build`, runs each build artifact as a real Worker, and checks
+// `workerstack build`, runs each build artifact as a real Worker, and checks
 // each feature end to end. Not part of `bun run test`: it starts sqld and a
 // runtime process.
 //
@@ -87,13 +87,13 @@ let packageBuilt = false
 async function setup(appDir: string) {
   if (!packageBuilt) {
     const build = Bun.spawnSync(['bun', 'run', 'build'], {
-      cwd: join(repo, 'packages/bunderstack'),
+      cwd: join(repo, 'packages/workerstack'),
     })
     if (build.exitCode !== 0) throw new Error(build.stderr.toString())
     packageBuilt = true
   }
 
-  const dir = await mkdtemp(join(tmpdir(), 'bunderstack-workers-'))
+  const dir = await mkdtemp(join(tmpdir(), 'workerstack-workers-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
 
   const dbPort = await freePort()
@@ -111,19 +111,19 @@ async function setup(appDir: string) {
     20_000,
   )
 
-  // The artifact a host deploys: `bunderstack build`, then a config whose main
+  // The artifact a host deploys: `workerstack build`, then a config whose main
   // and assets point at dist/, as Bunderhost renders it.
-  const { runBuild } = await import('../packages/bunderstack/src/dev/index')
+  const { runBuild } = await import('../packages/workerstack/src/dev/index')
   if ((await runBuild({ directory: appDir })) !== 0) {
-    throw new Error(`bunderstack build failed in ${appDir}`)
+    throw new Error(`workerstack build failed in ${appDir}`)
   }
   const { parseWorkerBlueprintYaml, workerPlanFromBlueprint } =
-    await import('../packages/bunderstack/src/blueprint')
+    await import('../packages/workerstack/src/blueprint')
   const { toWranglerConfig } =
-    await import('../packages/bunderstack/src/workers/wrangler')
+    await import('../packages/workerstack/src/workers/wrangler')
   const plan = workerPlanFromBlueprint(
     parseWorkerBlueprintYaml(
-      await Bun.file(join(appDir, 'bunderstack.blueprint.yaml')).text(),
+      await Bun.file(join(appDir, 'workerstack.blueprint.yaml')).text(),
     ),
   )
   const name = appDir.split('/').at(-1)!
@@ -143,17 +143,17 @@ async function setup(appDir: string) {
   cleanups.push(() => rm(artifactConfig, { force: true }))
 
   // Migrations run on the host, as Bunderhost does before a deploy.
-  const { backend } = (await import(join(appDir, 'src/bunderstack.ts'))) as {
+  const { backend } = (await import(join(appDir, 'src/workerstack.ts'))) as {
     backend: {
       start(options: { env: Record<string, string> }): Promise<unknown>
     }
   }
   // Resolve from the app, so provision and the backend share one instance.
   const { provision } = (await import(
-    Bun.resolveSync('bunderstack/provision-schema', appDir)
-  )) as typeof import('../packages/bunderstack/src/provision-schema')
+    Bun.resolveSync('workerstack/provision-schema', appDir)
+  )) as typeof import('../packages/workerstack/src/provision-schema')
   const app = await backend.start({
-    env: { BUNDERSTACK_DATABASE_URL: databaseUrl, AUTH_SECRET },
+    env: { WORKERSTACK_DATABASE_URL: databaseUrl, AUTH_SECRET },
   })
   await provision(app as never, { force: true })
   await (app as { close(): Promise<void> }).close()
@@ -164,7 +164,7 @@ async function setup(appDir: string) {
   await writeFile(
     devVars,
     [
-      `BUNDERSTACK_DATABASE_URL=${databaseUrl}`,
+      `WORKERSTACK_DATABASE_URL=${databaseUrl}`,
       `AUTH_SECRET=${AUTH_SECRET}`,
       `APP_URL=${base}`,
     ].join('\n'),

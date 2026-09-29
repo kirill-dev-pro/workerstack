@@ -111,7 +111,7 @@ if (problems.length) {
 }
 
 // npm marks bins executable on install, but a workspace link points straight
-// at dist, so `bunderstack dev` in an example needs the mode set here.
+// at dist, so `workerstack dev` in an example needs the mode set here.
 const manifest = (await Bun.file(join(packageDir, 'package.json')).json()) as {
   bin?: Record<string, string>
 }
@@ -120,11 +120,11 @@ for (const bin of Object.values(manifest.bin ?? {})) {
 }
 
 // The agent skills are authored once in .agents/skills, where this repo's own
-// agents read them, and shipped from the package so `bunderstack skills` can
+// agents read them, and shipped from the package so `workerstack skills` can
 // install the pair that matches the installed version.
-const SHIPPED_SKILLS = ['creating-bunderstack-apps', 'migrating-to-bunderstack']
+const SHIPPED_SKILLS = ['creating-workerstack-apps']
 
-if (name === 'bunderstack') {
+if (name === 'workerstack') {
   const skillsDir = join(packageDir, 'skills')
   await rm(skillsDir, { recursive: true, force: true })
   for (const skill of SHIPPED_SKILLS) {

@@ -1,0 +1,90 @@
+version: 2
+generator:
+  name: workerstack
+  version: 0.1.0-beta.0
+application:
+  framework: bun-ssr
+  scripts:
+    build: build
+  worker:
+    render: spa
+    main: workerstack/workers/entry
+    compatibilityDate: 2026-09-27
+    assets: dist/client
+workerstack:
+  entry: src/workerstack.ts
+  manifestVersion: 4
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: push
+    tables:
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: _system.messageEvents
+        physicalName: _bunderstack_message_events
+        system: true
+      - exportName: _system.messages
+        physicalName: _bunderstack_messages
+        system: true
+      - exportName: account
+        physicalName: account
+        system: false
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: events
+        physicalName: events
+        system: false
+      - exportName: notes
+        physicalName: notes
+        system: false
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+      - exportName: verification
+        physicalName: verification
+        system: false
+  storage:
+    defaultBucket: media
+    buckets:
+      - name: media
+        visibility: private
+  realtime:
+    required: true
+  messaging:
+    channels: []
+environment:
+  - key: APP_URL
+    required: false
+    scope: server
+    sensitive: true
+api:
+  operations:
+    - handle: enqueueNote
+      operationId: enqueueNote
+      effect: mutation
+      method: POST
+      path: /api/probe/enqueue
+background:
+  jobs:
+    - name: noteCreated
+  cron:
+    - name: everyMinute
+      schedule: "* * * * *"
+      timezone: UTC
+    - name: workerstack:storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC

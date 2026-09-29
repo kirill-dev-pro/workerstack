@@ -1,4 +1,4 @@
-import { generateTypeId } from 'bunderstack'
+import { generateTypeId } from 'workerstack'
 import { and, eq, inArray, lt, or, sql } from 'drizzle-orm'
 
 import {

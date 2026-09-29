@@ -1,0 +1,141 @@
+// src/env.test.ts
+import { test, expect } from 'bun:test'
+import * as v from 'valibot'
+
+import { validateEnv, createClientEnv, WorkerstackEnvError } from './env'
+
+test('base schema applies dev defaults with empty source', () => {
+  const env = validateEnv(undefined, { source: {} })
+  expect(env.DATABASE_URL).toBe('file:./data.db')
+  expect(env.AUTH_SECRET).toBe('dev-secret-change-in-prod')
+})
+
+test('base schema reads values from source', () => {
+  const env = validateEnv(undefined, {
+    source: {
+      DATABASE_URL: 'libsql://x.turso.io',
+      DATABASE_AUTH_TOKEN: 'tok',
+      AUTH_SECRET: 's3cret',
+    },
+  })
+  expect(env.DATABASE_URL).toBe('libsql://x.turso.io')
+  expect(env.DATABASE_AUTH_TOKEN).toBe('tok')
+  expect(env.AUTH_SECRET).toBe('s3cret')
+})
+
+test('AUTH_SECRET is required in production', () => {
+  expect(() =>
+    validateEnv(undefined, { source: { NODE_ENV: 'production' } }),
+  ).toThrow(WorkerstackEnvError)
+  try {
+    validateEnv(undefined, { source: { NODE_ENV: 'production' } })
+  } catch (e) {
+    expect((e as WorkerstackEnvError).issues.join(' ')).toContain('AUTH_SECRET')
+  }
+})
+
+test('user server extension is validated and typed', () => {
+  const env = validateEnv(
+    { server: { OPENAI_API_KEY: v.string() } },
+    { source: { OPENAI_API_KEY: 'sk-1' } },
+  )
+  const key: string = env.OPENAI_API_KEY
+  expect(key).toBe('sk-1')
+})
+
+test('user client extension is validated and typed', () => {
+  const env = validateEnv(
+    { client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) } },
+    { source: { PUBLIC_APP_URL: 'https://app.example.com' } },
+  )
+  expect(env.PUBLIC_APP_URL).toBe('https://app.example.com')
+})
+
+test('all failures are aggregated into one error', () => {
+  try {
+    validateEnv(
+      {
+        server: { OPENAI_API_KEY: v.string() },
+        client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
+      },
+      { source: { PUBLIC_APP_URL: 'not-a-url' } },
+    )
+    expect.unreachable()
+  } catch (e) {
+    const err = e as WorkerstackEnvError
+    expect(err.issues).toHaveLength(2)
+    expect(err.message).toContain('OPENAI_API_KEY')
+    expect(err.message).toContain('PUBLIC_APP_URL')
+  }
+})
+
+test('server keys must not start with PUBLIC_', () => {
+  expect(() =>
+    validateEnv(
+      { server: { PUBLIC_LEAK: v.string() } },
+      { source: { PUBLIC_LEAK: 'x' } },
+    ),
+  ).toThrow(/PUBLIC_/)
+})
+
+test('client keys must start with PUBLIC_', () => {
+  expect(() =>
+    validateEnv(
+      { client: { APP_URL: v.string() } },
+      { source: { APP_URL: 'x' } },
+    ),
+  ).toThrow(/PUBLIC_/)
+})
+
+test('optional user vars may be absent', () => {
+  const env = validateEnv(
+    { server: { FEATURE_FLAG: v.optional(v.string()) } },
+    { source: {} },
+  )
+  expect(env.FEATURE_FLAG).toBeUndefined()
+})
+
+test('createClientEnv validates client vars from runtimeEnv', () => {
+  const env = createClientEnv({
+    server: { SECRET_KEY: v.string() },
+    client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
+    runtimeEnv: { PUBLIC_APP_URL: 'https://app.example.com' },
+  })
+  expect(env.PUBLIC_APP_URL).toBe('https://app.example.com')
+})
+
+test('createClientEnv throws on server key access', () => {
+  const env = createClientEnv({
+    server: { SECRET_KEY: v.string() },
+    client: { PUBLIC_APP_URL: v.string() },
+    runtimeEnv: { PUBLIC_APP_URL: 'x' },
+  })
+  expect(() => (env as Record<string, unknown>).SECRET_KEY).toThrow(
+    /SECRET_KEY is server-only/,
+  )
+})
+
+test('createClientEnv aggregates client validation failures', () => {
+  expect(() =>
+    createClientEnv({
+      client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
+      runtimeEnv: { PUBLIC_APP_URL: 'not-a-url' },
+    }),
+  ).toThrow(WorkerstackEnvError)
+})
+
+test('createClientEnv falls back to process.env', () => {
+  process.env.PUBLIC_FROM_PROCESS = 'yes'
+  const env = createClientEnv({ client: { PUBLIC_FROM_PROCESS: v.string() } })
+  expect(env.PUBLIC_FROM_PROCESS).toBe('yes')
+  delete process.env.PUBLIC_FROM_PROCESS
+})
+
+test('missing server env always throws', () => {
+  expect(() =>
+    validateEnv(
+      { server: { STRIPE_KEY: v.string() } },
+      { source: { NODE_ENV: 'production' } },
+    ),
+  ).toThrow(WorkerstackEnvError)
+})

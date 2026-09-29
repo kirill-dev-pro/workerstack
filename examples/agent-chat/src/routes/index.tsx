@@ -165,7 +165,7 @@ function AgentDesk({
     <main className="desk-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">BUNDERSTACK / AGENT EXPERIMENT 01</p>
+          <p className="eyebrow">WORKERSTACK / AGENT EXPERIMENT 01</p>
           <h1>{appName}</h1>
         </div>
         <div className="identity">

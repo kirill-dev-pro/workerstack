@@ -1,7 +1,7 @@
-import { bunderstackStart } from 'bunderstack/start'
+import { workerstackStart } from 'workerstack/start'
 
-import type { App } from './bunderstack'
+import type { App } from './workerstack'
 
-export const { createQueryClient, createApi } = bunderstackStart<App>()
+export const { createQueryClient, createApi } = workerstackStart<App>()
 export const queryClient = createQueryClient()
 export const api = createApi(queryClient)

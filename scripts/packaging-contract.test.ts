@@ -9,7 +9,7 @@ import { join } from 'node:path'
  * `scripts/verify-consumer.ts`.
  */
 const repoRoot = join(import.meta.dir, '..')
-const packages = ['bunderstack']
+const packages = ['workerstack']
 
 /** Tolerates the `//` comments tsconfig files are allowed to carry. */
 async function readJson(path: string) {
@@ -91,10 +91,10 @@ describe('published packages', () => {
   }
 })
 
-test('the npm package ships the canonical Bunderstack changelog', async () => {
+test('the npm package ships the canonical Workerstack changelog', async () => {
   const [canonical, packaged] = await Promise.all([
     Bun.file(join(repoRoot, 'CHANGELOG.md')).text(),
-    Bun.file(join(repoRoot, 'packages/bunderstack/CHANGELOG.md')).text(),
+    Bun.file(join(repoRoot, 'packages/workerstack/CHANGELOG.md')).text(),
   ])
   expect(packaged).toBe(canonical)
 })

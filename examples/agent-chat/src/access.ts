@@ -1,4 +1,4 @@
-import { defineAccess, type AccessContext } from 'bunderstack/access'
+import { defineAccess, type AccessContext } from 'workerstack/access'
 
 import * as schema from './schema'
 

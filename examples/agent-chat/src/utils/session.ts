@@ -1,4 +1,4 @@
-import { asTypeId } from 'bunderstack/typeid'
+import { asTypeId } from 'workerstack/typeid'
 
 import { authClient } from '~/utils/auth-client'
 

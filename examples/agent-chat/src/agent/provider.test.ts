@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test'
-import { generateTypeId } from 'bunderstack'
+import { generateTypeId } from 'workerstack'
 
 import type { AgentResponderInput } from './types'
 

@@ -3,16 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "wrangler": "bun ../../packages/bunderstack/src/cli.ts wrangler .",
-    "build": "bun ../../packages/bunderstack/src/cli.ts build .",
-    "dev": "bun ../../packages/bunderstack/src/cli.ts dev ."
+    "wrangler": "bun ../../packages/workerstack/src/cli.ts wrangler .",
+    "build": "bun ../../packages/workerstack/src/cli.ts build .",
+    "dev": "bun ../../packages/workerstack/src/cli.ts dev ."
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "@orpc/publisher": "2.0.0-beta.37",
     "@orpc/server": "2.0.0-beta.37",
     "better-auth": "^1.7.6",
-    "bunderstack": "workspace:*",
+    "workerstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "valibot": "1.4.2"
   },

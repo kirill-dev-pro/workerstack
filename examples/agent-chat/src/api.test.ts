@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mockAuthSession } from 'bunderstack/testing'
+import { mockAuthSession } from 'workerstack/testing'
 import { eq } from 'drizzle-orm'
 
 import { remember } from './agent/memory'

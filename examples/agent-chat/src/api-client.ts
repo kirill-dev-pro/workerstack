@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack/query'
+import { createClient } from 'workerstack/query'
 
-import type { App } from './bunderstack'
+import type { App } from './workerstack'
 
 export function createQueryClient() {
   return new QueryClient({

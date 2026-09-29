@@ -1,11 +1,11 @@
 {
-  "name": "bunderstack-example-agent-chat",
+  "name": "workerstack-example-agent-chat",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bunderstack dev",
-    "build": "bunderstack build",
-    "wrangler": "bunderstack wrangler",
+    "dev": "workerstack dev",
+    "build": "workerstack build",
+    "wrangler": "workerstack wrangler",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -17,7 +17,7 @@
     "ai": "^7.0.52",
     "arktype": "^2.2.3",
     "better-auth": "^1.0.0",
-    "bunderstack": "workspace:*",
+    "workerstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "marked": "^18.0.11",
     "react": "^19.0.0",

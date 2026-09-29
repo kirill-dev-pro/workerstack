@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Creating Workerstack Apps'
+  short_description: 'Start production-ready Workerstack applications'
+  default_prompt: 'Use $creating-workerstack-apps to start a new Workerstack application.'

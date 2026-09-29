@@ -42,4 +42,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 data.db
 
 # Copied from .agents/skills by scripts/build-package.ts
-packages/bunderstack/skills/
+packages/workerstack/skills/

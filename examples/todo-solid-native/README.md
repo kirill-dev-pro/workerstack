@@ -1,17 +1,17 @@
 # todo-solid-native
 
-A Solid 2 example using Bunderstack without TanStack Query, code generation, or
+A Solid 2 example using Workerstack without TanStack Query, code generation, or
 a local network layer. `createClient<App>()` infers the native oRPC graph from
 the server app type; the Solid adapter mirrors confirmed live-view snapshots
 into a keyed store, while Solid actions own the optimistic overlay.
 
-- `src/bunderstack.ts` — backend plus the exported `App` type handle.
+- `src/workerstack.ts` — backend plus the exported `App` type handle.
 - `src/native/todos.ts` — the entire app data layer: one `LiveView` and three
   optimistic actions.
 - `src/TodoList.tsx` — UI and mutation-scoped error presentation.
 - `src/native/form.ts` — draft recovery that preserves newer edits and submissions.
 
-The database generates canonical Todo IDs. `bunderstack/client` generates an
+The database generates canonical Todo IDs. `workerstack/client` generates an
 internal `operationId` for each mutation, sends it as a request header, and
 waits for the matching live frame before allowing Solid to discard the
 optimistic overlay. A temporary `pending:*` value is only a local render key.
@@ -32,7 +32,7 @@ bun run dev     # sqld, celld with the Worker, and Vite; one command
 bun run build   # dist/client, and a check of wrangler.json
 ```
 
-The first `bun run dev` downloads celld and sqld to `~/.cache/bunderstack`.
+The first `bun run dev` downloads celld and sqld to `~/.cache/workerstack`.
 Deploy with `wrangler deploy` (Cloudflare) or `celld deploy` (your server).
 
 New optimistic rows have disabled checkbox/delete controls until the server ID

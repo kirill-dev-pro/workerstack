@@ -1,8 +1,8 @@
-import { generateTypeId, typeid } from 'bunderstack'
+import { generateTypeId, typeid } from 'workerstack'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-// Bunderstack's own tables, so committed migrations create them for hosting.
-export * from 'bunderstack/schema'
+// Workerstack's own tables, so committed migrations create them for hosting.
+export * from 'workerstack/schema'
 
 /**
  * Better Auth tables. `role` drives the admin dashboard; it is never writable

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { createIsomorphicFetch } from 'bunderstack/start'
+import { createIsomorphicFetch } from 'workerstack/start'
 
 const isoFetch = createIsomorphicFetch()
 

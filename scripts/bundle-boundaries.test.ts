@@ -17,7 +17,7 @@ type ProbeResult = {
 // Bun.build() must not run in this process: it breaks bare-specifier
 // resolution for every later-loaded file in the built file's own package,
 // which is what made `bun test` at the repo root fail to import
-// '@tanstack/query-core' & co. from bunderstack-query. See scripts/bundle-probe.ts.
+// '@tanstack/query-core' & co. from workerstack-query. See scripts/bundle-probe.ts.
 async function bundle(
   entrypoint: string,
   external: string[] = [],
@@ -56,7 +56,7 @@ function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
 
 describe('browser bundle boundaries', () => {
   test('unified query root stays browser-only', async () => {
-    const output = await bundle('packages/bunderstack/src/query/index.ts', [
+    const output = await bundle('packages/workerstack/src/query/index.ts', [
       '@orpc/client',
       '@orpc/client/fetch',
       '@orpc/tanstack-query',
@@ -68,8 +68,8 @@ describe('browser bundle boundaries', () => {
       '/@tanstack/react-query/',
       '/better-auth/',
       '/drizzle-orm/',
-      'packages/bunderstack/src/index.ts',
-      'packages/bunderstack/src/database',
+      'packages/workerstack/src/index.ts',
+      'packages/workerstack/src/database',
     ])
     expect(output.text).toContain('@orpc/client')
     expect(output.text).toContain('@orpc/tanstack-query')
@@ -79,7 +79,7 @@ describe('browser bundle boundaries', () => {
   })
 
   test('start root keeps TanStack server external and excludes auth', async () => {
-    const output = await bundle('packages/bunderstack/src/start/index.ts', [
+    const output = await bundle('packages/workerstack/src/start/index.ts', [
       '@orpc/client',
       '@orpc/client/fetch',
       '@orpc/tanstack-query',
@@ -93,22 +93,22 @@ describe('browser bundle boundaries', () => {
     expect(output.size).toBeLessThan(32 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/better-auth/',
-      'packages/bunderstack/src/start/auth-client.',
-      'packages/bunderstack/src/index.ts',
-      'packages/bunderstack/src/database',
+      'packages/workerstack/src/start/auth-client.',
+      'packages/workerstack/src/index.ts',
+      'packages/workerstack/src/database',
     ])
     expect(output.text).not.toContain('better-auth')
   })
 
   test('the live view client stays browser-only and dependency-free', async () => {
-    const output = await bundle('packages/bunderstack/src/client/live-view.ts')
+    const output = await bundle('packages/workerstack/src/client/live-view.ts')
     expect(output.size).toBeLessThan(8 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/drizzle-orm/',
       '/better-auth/',
       '/valibot/',
-      'packages/bunderstack/src/api',
-      'packages/bunderstack/src/index.ts',
+      'packages/workerstack/src/api',
+      'packages/workerstack/src/index.ts',
     ])
     expect(output.text).not.toContain('@orpc/')
   })
@@ -134,7 +134,7 @@ describe('server bundle boundaries', () => {
 
   test('production provision entry has no drizzle-kit import edge', async () => {
     const output = await bundle(
-      'packages/bunderstack/src/provision.ts',
+      'packages/workerstack/src/provision.ts',
       serverExternal,
       'bun',
     )
@@ -144,12 +144,12 @@ describe('server bundle boundaries', () => {
 
   test('root runtime does not eagerly bundle test fixtures', async () => {
     const output = await bundle(
-      'packages/bunderstack/src/index.ts',
+      'packages/workerstack/src/index.ts',
       serverExternal,
       'bun',
       true,
     )
-    expect(output.text).not.toContain('bunderstack-storage-')
+    expect(output.text).not.toContain('workerstack-storage-')
     expect(output.text).not.toContain('node:fs')
     expect(output.text).not.toContain('node:os')
     expect(output.text).not.toContain('bun:test')
@@ -157,13 +157,13 @@ describe('server bundle boundaries', () => {
 
   test('testing entry includes fixtures without importing bun:test', async () => {
     const output = await bundle(
-      'packages/bunderstack/src/testing.ts',
+      'packages/workerstack/src/testing.ts',
       serverExternal,
       'bun',
     )
     expect(
       output.inputs.some((input) =>
-        input.includes('packages/bunderstack/src/testing/fixture.'),
+        input.includes('packages/workerstack/src/testing/fixture.'),
       ),
     ).toBe(true)
     expect(output.text).not.toContain('bun:test')
