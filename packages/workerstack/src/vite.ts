@@ -113,11 +113,27 @@ export async function workerstack(
       return undefined
     },
     config() {
-      // The artifact shape hosts deploy, in both render modes.
       return {
         environments: {
+          // The artifact shape hosts deploy, in both render modes.
           client: { build: { outDir: 'dist/client' } },
-          ssr: { build: { outDir: 'dist/server' } },
+          ssr: {
+            build: { outDir: 'dist/server' },
+            // The Cloudflare plugin scans only the Worker's main, which here
+            // is a workerstack module, so Vite found the app's dependencies
+            // one request at a time. Each find re-optimized, and a cold
+            // `workerstack dev` died on a chunk the previous pass deleted.
+            // Scan the app's own code up front instead.
+            optimizeDeps: {
+              include: [blueprint.application.worker.main],
+              entries: ssr
+                ? [
+                    'src/**/*.{ts,tsx,js,jsx}',
+                    '!src/**/*.{test,spec}.{ts,tsx,js,jsx}',
+                  ]
+                : [backendEntry],
+            },
+          },
         },
       }
     },

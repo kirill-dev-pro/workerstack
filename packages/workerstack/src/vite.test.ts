@@ -70,6 +70,16 @@ test('ssr: backend resolver, Cloudflare on the ssr environment, then Start', asy
       join(root, 'src/workerstack.ts'),
     )
     expect(plugins[0]!.resolveId!('other')).toBeUndefined()
+    // SSR pages import from all of src: scan it so no dependency is found
+    // late, which re-optimizes mid-start.
+    const config = (plugins[0] as unknown as { config(): any }).config()
+    expect(config.environments.ssr.optimizeDeps).toEqual({
+      include: ['workerstack/start/server-entry'],
+      entries: [
+        'src/**/*.{ts,tsx,js,jsx}',
+        '!src/**/*.{test,spec}.{ts,tsx,js,jsx}',
+      ],
+    })
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -89,7 +99,14 @@ test('spa: no Start plugin; outDirs match the artifact', async () => {
     expect(plugins[0]!.config!()).toEqual({
       environments: {
         client: { build: { outDir: 'dist/client' } },
-        ssr: { build: { outDir: 'dist/server' } },
+        ssr: {
+          build: { outDir: 'dist/server' },
+          // An SPA's Worker runs only the backend: scan from its entry.
+          optimizeDeps: {
+            include: ['workerstack/workers/entry'],
+            entries: [join(root, 'src/workerstack.ts')],
+          },
+        },
       },
     })
   } finally {
