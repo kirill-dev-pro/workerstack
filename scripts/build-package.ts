@@ -122,7 +122,11 @@ for (const bin of Object.values(manifest.bin ?? {})) {
 // The agent skills are authored once in .agents/skills, where this repo's own
 // agents read them, and shipped from the package so `workerstack skills` can
 // install the pair that matches the installed version.
-const SHIPPED_SKILLS = ['creating-workerstack-apps', 'migrating-to-workerstack']
+const SHIPPED_SKILLS = [
+  'create-workerstack-app',
+  'creating-workerstack-apps',
+  'migrating-to-workerstack',
+]
 
 if (name === 'workerstack') {
   const skillsDir = join(packageDir, 'skills')

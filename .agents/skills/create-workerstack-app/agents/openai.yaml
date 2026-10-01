@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Create a Workerstack App'
+  short_description: 'From an empty directory to a live Workerstack app on Bunderhost'
+  default_prompt: 'Use $create-workerstack-app to create a new Workerstack application and deploy it.'

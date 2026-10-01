@@ -42,6 +42,26 @@ describe('creating-workerstack-apps skill', () => {
   })
 })
 
+describe('create-workerstack-app skill', () => {
+  const dir = '.agents/skills/create-workerstack-app'
+
+  test('declares a discoverable repository skill', () => {
+    const markdown = read(dir, 'SKILL.md')
+    expect(markdown).toContain('name: create-workerstack-app')
+    expect(markdown).toContain('description: Use when')
+    expect(existsSync(resolve(root, dir, 'agents/openai.yaml'))).toBe(true)
+  })
+
+  test('starts from a per-request query client and the Cloudflare target', () => {
+    const starter = read(dir, 'references/starter-files.md')
+    const shipping = read(dir, 'references/shipping.md')
+    expect(starter).toContain('const queryClient = createQueryClient()')
+    expect(starter).toContain("export * from 'workerstack/schema'")
+    expect(shipping).toContain('productionTarget: cloudflare')
+    expect(shipping).toContain('create_setup_session')
+  })
+})
+
 describe('migrating-to-workerstack skill', () => {
   const dir = '.agents/skills/migrating-to-workerstack'
 
@@ -105,6 +125,7 @@ describe('skills delivery', () => {
     const build = read('scripts/build-package.ts')
     expect(build).toContain("'creating-workerstack-apps'")
     expect(build).toContain("'migrating-to-workerstack'")
+    expect(build).toContain("'create-workerstack-app'")
     expect(build).toContain('.agents/skills')
   })
 

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 /** The skills this package ships, copied from `.agents/skills` at build time. */
 export const SHIPPED_SKILLS = [
+  'create-workerstack-app',
   'creating-workerstack-apps',
   'migrating-to-workerstack',
 ] as const
@@ -22,8 +23,9 @@ function agentsBlock(directory: string): string {
 
 This project uses Workerstack. Before changing the server API, access rules,
 jobs, storage, or realtime, read \`${directory}/creating-workerstack-apps/SKILL.md\`.
-To move a Bunderstack 0.x app here, read
-\`${directory}/migrating-to-workerstack/SKILL.md\` first.
+To start a new app and deploy it, read
+\`${directory}/create-workerstack-app/SKILL.md\`; to move a Bunderstack 0.x
+app here, read \`${directory}/migrating-to-workerstack/SKILL.md\` first.
 ${MARKER_END}`
 }
 
