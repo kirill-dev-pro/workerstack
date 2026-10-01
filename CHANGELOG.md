@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.2
+
+- Jobs run side by side in the Scheduler. The alarm awaited every handler it
+  claimed, and Cloudflare runs one alarm at a time, so a job enqueued while
+  another ran waited for it to finish, and per-minute cron stalled for the
+  length of the longest job. The alarm now keeps claiming while handlers run,
+  and claims a job only if its `maxRuntime` ends before Cloudflare's 15-minute
+  alarm cap.
+- A cold `workerstack dev` starts. The ssr environment found the app's
+  dependencies one request at a time, re-optimized on each, and stopped on a
+  chunk the previous pass had deleted (`The file does not exist at
+  .../deps_ssr/...`). The Vite plugin now scans the app's code up front.
+
 ## 0.1.1
 
 - `workerstack skills` works in a directory with no app yet. It loaded the
