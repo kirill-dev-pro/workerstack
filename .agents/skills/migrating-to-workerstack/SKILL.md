@@ -72,3 +72,7 @@ names, so the production database carries over without a migration.
   manual copy.
 - Forgetting that the hostname changes with the target: OAuth callback URLs,
   webhooks, and links in docs point at the old one.
+- Leaving the old callback registered after the old target is destroyed: its
+  freed hostname can be claimed by someone else.
+- Testing production by creating accounts or rows. Check sign-in up to the
+  provider's login page; the person does the real sign-in.

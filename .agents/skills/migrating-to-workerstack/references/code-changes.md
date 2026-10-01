@@ -6,7 +6,7 @@ Work on a branch. Commit once the verification in the last section passes.
 
 ```sh
 bun remove bunderstack nitro
-bun add --exact workerstack@<version>
+bun add --exact workerstack@latest
 bun add -d @cloudflare/vite-plugin wrangler drizzle-kit@^0.30.0
 jq .peerDependencies node_modules/workerstack/package.json
 ```
