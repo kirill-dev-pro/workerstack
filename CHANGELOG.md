@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
+
+The first stable release of Workerstack.
 
 - `workerstack dev` runs Vite under Node.js and needs Node.js 20 or later.
   Under Bun, miniflare's requests to workerd ignored their dispatcher and went

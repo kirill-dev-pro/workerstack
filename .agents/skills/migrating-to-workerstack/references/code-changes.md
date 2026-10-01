@@ -11,8 +11,8 @@ bun add -d @cloudflare/vite-plugin wrangler drizzle-kit@^0.30.0
 jq .peerDependencies node_modules/workerstack/package.json
 ```
 
-Pin the exact version while Workerstack is in beta: `bun add workerstack`
-writes a caret range. Match the peers exactly where they are pinned: every
+Pin the exact version: `bun add workerstack` writes a caret range, and a 0.x
+minor release may change the API. Match the peers exactly where they are pinned: every
 `@orpc/*` package the app lists must be the version workerstack names (for
 example `2.0.0-beta.37`), and add `@orpc/publisher` at that version when the
 app uses realtime. A mismatched oRPC copy fails at runtime, not at install.
@@ -232,9 +232,7 @@ auth work.
 If `workerstack dev` stops with `ConnectionRefused` on
 `http://localhost/__vite_plugin_cloudflare_get_export_types__`, the installed
 Workerstack is 0.1.0-beta.1, which starts Vite under Bun, where miniflare
-cannot reach workerd. Later releases run Vite under Node. On beta.1, remove
-`'--bun',` from the Vite command in `node_modules/workerstack/dist/dev/index.js`
-(a reinstall restores the file) and run `bun run dev` again.
+cannot reach workerd. Upgrade to 0.1.0 or later, which runs Vite under Node.
 
 If a page or `/api/auth/get-session` never answers while `/api/health` does,
 something awaits a fetch started by another request: look for `discoveryUrl`
