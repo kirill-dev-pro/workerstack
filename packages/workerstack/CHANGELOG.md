@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- `workerstack skills` works in a directory with no app yet. It loaded the
+  blueprint generator, and through it the backend's optional peers, and failed
+  with "Cannot find package 'better-auth'".
+- `workerstack skills` also installs `create-workerstack-app`: from an empty
+  directory to a live app on Bunderhost.
+
 ## 0.1.0
 
 The first stable release of Workerstack.

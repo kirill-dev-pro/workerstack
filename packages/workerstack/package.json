@@ -1,6 +1,6 @@
 {
   "name": "workerstack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Full-stack framework for Cloudflare Workers: one blueprint declares the API, auth, storage, jobs, cron, and realtime, and SSR with TanStack Start runs next to them.",
   "keywords": [
     "backend",
