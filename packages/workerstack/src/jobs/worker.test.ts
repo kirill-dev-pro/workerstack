@@ -324,6 +324,35 @@ test('pump refills a freed slot while another handler remains active', async () 
   await r.drain()
 })
 
+test('pump with claimUntil skips work whose maxRuntime would end later', async () => {
+  const ran: string[] = []
+  const defs: JobsDefs = {
+    long: {
+      kind: 'job',
+      maxRuntime: 60_000,
+      handler: async () => void ran.push('long'),
+    },
+    short: {
+      kind: 'job',
+      maxRuntime: 1_000,
+      handler: async () => void ran.push('short'),
+    },
+  }
+  const r = runner(defs)
+  await enqueueJob(db, defs, 'long', undefined, { runAt: 1 })
+  await enqueueJob(db, defs, 'short', undefined, { runAt: 1 })
+
+  const cycle = await r.pump(10, { claimUntil: 30_000 })
+  expect(cycle.claimed).toBe(1)
+  await r.drain()
+  expect(ran).toEqual(['short'])
+
+  // Without a cap the long job is claimed as before.
+  expect((await r.pump(10)).claimed).toBe(1)
+  await r.drain()
+  expect(ran).toEqual(['short', 'long'])
+})
+
 test('pump renews a healthy handler instead of reclaiming it', async () => {
   const gate = deferred()
   let starts = 0

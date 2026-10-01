@@ -3,6 +3,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import * as v from 'valibot'
 
 import type { WorkerEnv } from './types'
 
@@ -97,6 +98,93 @@ test('a later notify never pushes an earlier alarm back', async () => {
     await s.scheduler().fetch(notify(now + 10_000))
     await s.scheduler().fetch(notify(now + 60_000))
     expect(s.alarmAt()).toBe(now + 10_000)
+  } finally {
+    await s.cleanup()
+  }
+})
+
+/** A job that holds until released, to keep an alarm busy. */
+async function setupSlow() {
+  const dir = await mkdtemp(join(tmpdir(), 'workerstack-scheduler-'))
+  const started: string[] = []
+  const gates = new Map<string, () => void>()
+  const backend = workerstack({
+    schema: { notes },
+    database: { adapter: libsql() },
+    jobs: (j) =>
+      j.define({
+        slow: j.job({
+          input: v.object({ name: v.string() }),
+          concurrency: 4,
+          handler: async ({ name }) => {
+            started.push(name)
+            await new Promise<void>((resolve) => gates.set(name, resolve))
+          },
+        }),
+      }),
+  })
+  const Scheduler = createSchedulerClass(backend)
+  const env: WorkerEnv = { DATABASE_URL: `file:${join(dir, 'db.sqlite')}` }
+  const SCHEDULER = createFakeNamespace((state) => new Scheduler(state, env))
+  env.SCHEDULER = SCHEDULER
+  const app = await appFor(backend, env, 'fetch')
+  await provision(app as never, { force: true })
+  const until = async (check: () => boolean, ms = 5_000) => {
+    const deadline = Date.now() + ms
+    while (!check()) {
+      if (Date.now() > deadline) throw new Error('timed out waiting')
+      await new Promise((r) => setTimeout(r, 20))
+    }
+  }
+  return {
+    started,
+    release: (name: string) => gates.get(name)?.(),
+    until,
+    app: app as unknown as {
+      jobs: {
+        enqueue(
+          name: string,
+          input: unknown,
+          opts?: { delay?: number },
+        ): Promise<unknown>
+      }
+    },
+    scheduler: () => SCHEDULER.instance('main'),
+    alarmAt: () => SCHEDULER.state('main').alarmAt(),
+    cleanup: () => rm(dir, { recursive: true, force: true }),
+  }
+}
+
+test('a job enqueued while another runs starts without waiting for it', async () => {
+  const s = await setupSlow()
+  try {
+    await s.app.jobs.enqueue('slow', { name: 'a' })
+    const alarm = s.scheduler().alarm()
+    await s.until(() => s.started.includes('a'))
+    // The alarm is busy with `a`; this enqueue notifies the same object.
+    await s.app.jobs.enqueue('slow', { name: 'b' })
+    await s.until(() => s.started.includes('b'))
+    s.release('a')
+    s.release('b')
+    await alarm
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('a delayed job comes due while another runs and starts on time', async () => {
+  const s = await setupSlow()
+  try {
+    await s.app.jobs.enqueue('slow', { name: 'a' })
+    const alarm = s.scheduler().alarm()
+    await s.until(() => s.started.includes('a'))
+    await s.app.jobs.enqueue('slow', { name: 'later' }, { delay: 1_200 })
+    await s.until(() => s.started.includes('later'))
+    s.release('a')
+    s.release('later')
+    await alarm
+    // Everything finished: the next alarm is the safety tick.
+    expect(s.alarmAt()).toBeGreaterThan(Date.now() + 3_500_000)
   } finally {
     await s.cleanup()
   }

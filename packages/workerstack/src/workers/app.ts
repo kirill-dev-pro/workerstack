@@ -1,5 +1,7 @@
 // src/workers/app.ts — one app per isolate and role, built from bindings.
+
 import type { WorkerstackBackend } from '../backend'
+import type { PumpOptions, PumpResult } from '../jobs/index'
 import type { Platform } from '../platform'
 import type { DurableObjectNamespaceLike, WorkerEnv } from './types'
 
@@ -12,6 +14,7 @@ export type WorkerApp = {
   handler(request: Request): Promise<Response>
   jobs: {
     tick(now?: number): Promise<{ claimed: number }>
+    pump(now?: number, opts?: PumpOptions): Promise<PumpResult>
     nextDueAt(now?: number, until?: number): Promise<number | null>
   }
 }

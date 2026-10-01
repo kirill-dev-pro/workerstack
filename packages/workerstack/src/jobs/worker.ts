@@ -68,7 +68,21 @@ type LeaseHeartbeat = {
   stop(): Promise<void>
 }
 
-type PumpResult = { wake?: Promise<void> }
+export type PumpOptions = {
+  /**
+   * Claim only work whose declared `maxRuntime` ends by this time, so a host
+   * with a hard wall-clock cap (a Durable Object alarm) never starts what it
+   * cannot finish. Work without a `maxRuntime` is claimed until this time.
+   */
+  claimUntil?: number
+}
+
+export type PumpResult = {
+  /** Rows claimed and started by this call. */
+  claimed: number
+  /** Settles when any active handler finishes; absent when none is active. */
+  wake?: Promise<void>
+}
 
 type CronCursor = {
   checkedThrough: number
@@ -629,17 +643,28 @@ export function createJobRunner(deps: {
     return task
   }
 
-  async function pump(now: number = Date.now()): Promise<PumpResult> {
+  async function pump(
+    now: number = Date.now(),
+    opts: PumpOptions = {},
+  ): Promise<PumpResult> {
     await maintain(now)
+    let claimed = 0
     for (const [name, def] of Object.entries(defs)) {
+      if (
+        opts.claimUntil !== undefined &&
+        now + (def.maxRuntime ?? 0) > opts.claimUntil
+      ) {
+        continue
+      }
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
       const work = await claimAvailable(type, def, now)
+      claimed += work.length
       for (const item of work) startWork(type, item, now)
     }
     const snapshot = [...active.values()].flatMap((tasks) => [...tasks])
     return snapshot.length === 0
-      ? {}
-      : { wake: Promise.race(snapshot).then(() => undefined) }
+      ? { claimed }
+      : { claimed, wake: Promise.race(snapshot).then(() => undefined) }
   }
 
   async function drain(): Promise<void> {

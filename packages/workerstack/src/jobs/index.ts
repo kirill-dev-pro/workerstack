@@ -30,7 +30,7 @@ export type {
   JobsRuntimeFacade,
 } from './define'
 export { enqueueJob, enqueueTarget, resolveRunAt } from './queue'
-export { createJobRunner } from './worker'
+export { createJobRunner, type PumpOptions, type PumpResult } from './worker'
 export { parseCron, cronMatches } from './cron'
 export {
   slotsDue,

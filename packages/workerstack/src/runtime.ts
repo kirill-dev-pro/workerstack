@@ -66,6 +66,8 @@ import {
   createJobRunner,
   enqueueJob,
   enqueueTarget,
+  type PumpOptions,
+  type PumpResult,
   resolveRunAt,
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
@@ -551,6 +553,15 @@ export async function materializeWorkerstack<
         return jobRunner
           ? jobRunner.tick(now)
           : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
+      },
+      /**
+       * Claim and start due work without waiting for it to finish: for a
+       * host that keeps running while handlers do (the Scheduler object).
+       */
+      pump(now?: number, opts?: PumpOptions): Promise<PumpResult> {
+        return jobRunner
+          ? jobRunner.pump(now, opts)
+          : Promise.resolve({ claimed: 0 })
       },
       nextDueAt(now: number = Date.now(), until: number = now + 86_400_000) {
         return jobRunner
