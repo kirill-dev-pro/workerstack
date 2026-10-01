@@ -86,6 +86,7 @@ test('skills installs the skill, writes the pointer, and is idempotent', async (
   expect(agents).toContain('<!-- workerstack:skills -->')
   expect(agents).toContain('creating-workerstack-apps/SKILL.md')
   expect(agents).toContain('migrating-to-workerstack/SKILL.md')
+  expect(agents).toContain('create-workerstack-app/SKILL.md')
 
   // A second run changes nothing, so it is safe in a postinstall or a script.
   expect(await installSkills({ cwd, check: true }, io)).toBe(0)
@@ -233,4 +234,14 @@ test('dev CLI rejects invalid syntax', async () => {
     '[workerstack] unknown option: --open',
     '[workerstack] unknown option: --port',
   ])
+})
+
+test('the CLI loads the blueprint generator only when a command needs it', async () => {
+  // `workerstack skills` runs in an empty directory, where the backend's
+  // optional peers are not installed; a static import would fail there.
+  const source = await Bun.file(new URL('./cli.ts', import.meta.url)).text()
+  expect(source).not.toMatch(
+    /^import \{[^}]*\} from '\.\/blueprint-generator'/m,
+  )
+  expect(source).toContain("await import('./blueprint-generator')")
 })

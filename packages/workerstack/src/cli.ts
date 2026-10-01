@@ -1,10 +1,16 @@
 #!/usr/bin/env bun
-import {
-  BlueprintCheckError,
+import type {
+  GenerateBlueprintOptions,
   generateBlueprint,
-  type GenerateBlueprintOptions,
 } from './blueprint-generator'
+
 import { installSkills } from './cli-skills'
+
+// Loaded on use: the generator imports the backend, whose optional peers
+// (better-auth, drizzle) are absent in a directory that has no app yet, such
+// as where `workerstack skills` runs first.
+const lazyGenerateBlueprint: typeof generateBlueprint = async (options) =>
+  (await import('./blueprint-generator')).generateBlueprint(options)
 
 export type CliIo = {
   stdout(message: string): void
@@ -53,7 +59,7 @@ const appCommands: AppCommands = {
 export async function runCli(
   args: string[],
   io: CliIo,
-  generate: typeof generateBlueprint = generateBlueprint,
+  generate: typeof generateBlueprint = lazyGenerateBlueprint,
   commands: AppCommands = appCommands,
 ): Promise<number> {
   if (args[0] === '--help' || args[0] === '-h') {
@@ -227,7 +233,7 @@ export async function runCli(
     return 0
   } catch (error) {
     io.stderr(error instanceof Error ? error.message : String(error))
-    return error instanceof BlueprintCheckError ? 1 : 1
+    return 1
   }
 }
 
