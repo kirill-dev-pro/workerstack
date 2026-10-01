@@ -58,13 +58,15 @@ rather than guessing.
 
 With the Bunderhost MCP tools, `get_project` on the project:
 
-| Condition                                                                      | Verdict | Why                                                                                                                                         |
-| ------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| The person wants Cloudflare and the project already runs elsewhere             | Blocked | A running project cannot switch to Cloudflare, and Bunderhost does not move Tigris files to R2. Only a new project can start on Cloudflare. |
-| `productionTarget: managed_fly` or `self_hosted`, moving to a connected server | Go      | Worker apps run on a self-hosted server through celld. The Turso database is reused as is.                                                  |
-| `productionTarget: managed_fly` and the organization has no connected server   | Blocked | Worker apps do not run on managed Fly. A server has to be connected first (`create_server`).                                                |
-| `maxPreviewEnvironments` above 0                                               | Rework  | Worker previews are not available yet: pull requests stop getting preview environments. Tell the person.                                    |
-| The bucket holds files (`bucket` resource on Tigris)                           | Go      | On a server they stay in the same bucket but must be copied to new keys; see hosting cutover.                                               |
+| Condition                                                                                                                                | Verdict | Why                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Moving a Fly or self-hosted project to Cloudflare, organization allowed (`list_deployment_targets` lists `cloudflare`), source on GitHub | Go      | Bunderhost keeps the Turso database and copies the Tigris bucket into R2 under the same keys during the first Cloudflare deploy. |
+| Moving to Cloudflare, organization not allowed or source uploaded                                                                        | Blocked | The Cloudflare target is not available to this project. A connected server is the other Worker target.                           |
+| `productionTarget: cloudflare`, moving elsewhere                                                                                         | Blocked | Bunderhost does not move a project off Cloudflare.                                                                               |
+| `productionTarget: managed_fly` or `self_hosted`, moving to a connected server                                                           | Go      | Worker apps run on a self-hosted server through celld. The Turso database is reused as is.                                       |
+| Staying on managed Fly                                                                                                                   | Blocked | Worker apps do not run on managed Fly: choose Cloudflare or a connected server (`create_server`).                                |
+| `maxPreviewEnvironments` above 0                                                                                                         | Rework  | Worker previews are not available yet: pull requests stop getting preview environments. Tell the person.                         |
+| The bucket holds files and the target is a server                                                                                        | Go      | They stay in the same bucket but must be copied to new keys; see hosting cutover.                                                |
 
 ## Report
 

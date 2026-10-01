@@ -10,19 +10,31 @@ production: confirm each numbered step with the person before doing it.
 - **Environment variables and secrets**: the project's values carry over.
   Bunderhost sets `APP_URL`, `NODE_ENV`, `AUTH_SECRET`, and the database URLs
   itself.
-- **Files**: the Tigris bucket is reused, but under a new key layout (step 3).
+- **Files**: on Cloudflare, Bunderhost copies the Tigris bucket into R2
+  itself. On a server, the Tigris bucket is reused under a new key layout
+  (step 4).
 - **Not carried over**: preview environments (Worker previews do not exist
   yet) and the hostname when the target changes.
 
 ## 1. Choose and set the target
 
-Worker apps run on a connected server (celld). `list_deployment_targets` shows
-the servers; if there is none, connect one with `create_server` first.
+Worker apps run on Cloudflare or on a connected server (celld).
+`list_deployment_targets` shows what the organization has; with neither,
+connect a server with `create_server` first.
 
 The target cannot be changed through MCP. The person sets it in the
-dashboard: the project's settings, deployment target, their server. Nothing is
-created or stopped then: the next production deployment performs the switch,
-and the old target keeps running until Bunderhost retires it.
+dashboard: the project's settings, deployment target, then Cloudflare Workers
+or their server. Nothing is created or stopped then: the next production
+deployment performs the switch. Without a custom domain the old target is
+destroyed as soon as the new one serves; with one, it keeps serving until the
+domain verifies on the new target.
+
+On Cloudflare that deployment also creates an R2 bucket named like the
+Tigris one, copies every file into it before the upload, copies again after
+cutover for files uploaded meanwhile, and only then points the project at R2.
+A failed copy fails the deployment and leaves the old target serving. The
+Tigris bucket is never deleted: the nightly reaper lists it as an unclaimed
+production resource for the person to delete.
 
 A project already on a server can stay on the same server; skip this step.
 
@@ -45,14 +57,18 @@ attached. Before the deployment, list with the person:
 
 Merge the branch into the default branch. With `deployTrigger: push` the push
 deploys; with `manual` or `release`, `deploy_project` after the person
-confirms. Bunderhost reads `workerstack.blueprint.yaml`, marks the project as a
-Worker app, builds with Bun in Docker, validates the bundle with celld, runs
-the committed migrations, and cuts over.
+confirms. The revision's `workerstack.blueprint.yaml` sends it down the Worker
+path even though the project still reads as a 0.x one: Bunderhost marks the
+project as a Worker app, builds with Bun in Docker, validates the bundle (with
+celld for a server, wrangler for Cloudflare), runs the committed migrations,
+and cuts over.
 
 Follow it with `get_deployment` and `get_deployment_logs`. Report it live only
 when the deployment is terminal and `get_project_readiness` is `ok`.
 
-## 4. Copy the files
+## 4. Copy the files (server target only)
+
+Skip this step on Cloudflare: the deployment copied the files.
 
 A 0.x app stored a file with id `<bucket>/<name>` at the object key
 `<bucket>/<name>`. celld stores a Worker's R2 bucket under

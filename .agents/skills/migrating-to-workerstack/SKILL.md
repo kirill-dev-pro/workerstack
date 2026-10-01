@@ -67,5 +67,8 @@ names, so the production database carries over without a migration.
 - Merging before the target is switched. On a Fly project the push deploy
   fails with "Worker applications require a self-hosted VPS or Cloudflare
   target".
+- Copying files by hand for a move to Cloudflare. Bunderhost copies the
+  Tigris bucket into R2 during the deploy; only a server target needs the
+  manual copy.
 - Forgetting that the hostname changes with the target: OAuth callback URLs,
   webhooks, and links in docs point at the old one.

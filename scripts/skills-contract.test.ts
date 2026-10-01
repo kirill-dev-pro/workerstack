@@ -57,7 +57,8 @@ describe('migrating-to-workerstack skill', () => {
     const audit = read(dir, 'references/compatibility-audit.md')
     expect(skill).toContain('Do not start a\n     partial migration')
     expect(audit).toContain('Blocked')
-    expect(audit).toContain('A running project cannot switch to Cloudflare')
+    expect(audit).toContain('copies the Tigris bucket into R2')
+    expect(audit).toContain('Worker apps do not run on managed Fly')
   })
 
   test('moves the files to the celld layout on a server', () => {
