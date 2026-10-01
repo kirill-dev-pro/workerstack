@@ -3,7 +3,10 @@ import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** The skills this package ships, copied from `.agents/skills` at build time. */
-export const SHIPPED_SKILLS = ['creating-workerstack-apps'] as const
+export const SHIPPED_SKILLS = [
+  'creating-workerstack-apps',
+  'migrating-to-workerstack',
+] as const
 
 const MARKER_START = '<!-- workerstack:skills -->'
 const MARKER_END = '<!-- /workerstack:skills -->'
@@ -19,6 +22,8 @@ function agentsBlock(directory: string): string {
 
 This project uses Workerstack. Before changing the server API, access rules,
 jobs, storage, or realtime, read \`${directory}/creating-workerstack-apps/SKILL.md\`.
+To move a Bunderstack 0.x app here, read
+\`${directory}/migrating-to-workerstack/SKILL.md\` first.
 ${MARKER_END}`
 }
 

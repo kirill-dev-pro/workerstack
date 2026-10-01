@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Migrating to Workerstack'
+  short_description: 'Move a Bunderstack 0.x app to Workerstack, or find out why it cannot move'
+  default_prompt: 'Use $migrating-to-workerstack to check whether this Bunderstack app can move to Workerstack and migrate it.'

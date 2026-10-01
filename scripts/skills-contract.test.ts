@@ -42,6 +42,30 @@ describe('creating-workerstack-apps skill', () => {
   })
 })
 
+describe('migrating-to-workerstack skill', () => {
+  const dir = '.agents/skills/migrating-to-workerstack'
+
+  test('declares a discoverable repository skill', () => {
+    const markdown = read(dir, 'SKILL.md')
+    expect(markdown).toContain('name: migrating-to-workerstack')
+    expect(markdown).toContain('description: Use when')
+    expect(existsSync(resolve(root, dir, 'agents/openai.yaml'))).toBe(true)
+  })
+
+  test('stops on blockers before any code moves', () => {
+    const skill = read(dir, 'SKILL.md')
+    const audit = read(dir, 'references/compatibility-audit.md')
+    expect(skill).toContain('Do not start a\n     partial migration')
+    expect(audit).toContain('Blocked')
+    expect(audit).toContain('A running project cannot switch to Cloudflare')
+  })
+
+  test('moves the files to the celld layout on a server', () => {
+    const cutover = read(dir, 'references/hosting-cutover.md')
+    expect(cutover).toContain('celld/r2/<appName>-<bucket>/<bucket>/<name>')
+  })
+})
+
 describe('skills teach the current API declaration', () => {
   test('creating skill declares bases at module scope', () => {
     const markdown = read(
@@ -67,7 +91,6 @@ describe('skills teach the current API declaration', () => {
     expect(markdown).toContain('never for\nauthorization')
     expect(markdown).toContain('when the stream closes')
   })
-
 })
 
 describe('skills delivery', () => {
@@ -80,6 +103,7 @@ describe('skills delivery', () => {
     // The canonical copy stays in .agents/skills; the build copies it.
     const build = read('scripts/build-package.ts')
     expect(build).toContain("'creating-workerstack-apps'")
+    expect(build).toContain("'migrating-to-workerstack'")
     expect(build).toContain('.agents/skills')
   })
 
@@ -88,5 +112,4 @@ describe('skills delivery', () => {
     expect(cli).toContain("args[0] === 'skills'")
     expect(cli).toContain('workerstack skills [--dir <path>] [--check]')
   })
-
 })

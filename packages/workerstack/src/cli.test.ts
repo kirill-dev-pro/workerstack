@@ -85,6 +85,7 @@ test('skills installs the skill, writes the pointer, and is idempotent', async (
   const agents = await readFile(join(cwd, 'AGENTS.md'), 'utf8')
   expect(agents).toContain('<!-- workerstack:skills -->')
   expect(agents).toContain('creating-workerstack-apps/SKILL.md')
+  expect(agents).toContain('migrating-to-workerstack/SKILL.md')
 
   // A second run changes nothing, so it is safe in a postinstall or a script.
   expect(await installSkills({ cwd, check: true }, io)).toBe(0)
