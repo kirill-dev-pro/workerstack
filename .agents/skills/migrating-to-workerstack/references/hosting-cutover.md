@@ -10,8 +10,9 @@ production: confirm each numbered step with the person before doing it.
 - **Environment variables and secrets**: the project's values carry over.
   Bunderhost sets `APP_URL`, `NODE_ENV`, `AUTH_SECRET`, and the database URLs
   itself.
-- **Files**: on Cloudflare, Bunderhost copies the Tigris bucket into R2
-  itself. On a server, the Tigris bucket is reused under a new key layout
+- **Files**: on Cloudflare, the Tigris bucket is reused as is: the Worker
+  reaches it over S3 (`WORKERSTACK_S3_*`) under the same keys, so nothing is
+  copied. On a server, the Tigris bucket is reused under a new key layout
   (step 4).
 - **Not carried over**: preview environments (Worker previews do not exist
   yet) and the hostname when the target changes.
@@ -30,12 +31,10 @@ deployment performs the switch. Without a custom domain the old target is
 destroyed as soon as the new one serves; with one, it keeps serving until the
 domain verifies on the new target.
 
-On Cloudflare that deployment also creates an R2 bucket named like the
-Tigris one, copies every file into it before the upload, copies again after
-cutover for files uploaded meanwhile, and only then points the project at R2.
-A failed copy fails the deployment and leaves the old target serving. The
-Tigris bucket is never deleted: the nightly reaper lists it as an unclaimed
-production resource for the person to delete.
+On Cloudflare the deployment keeps the environment's Tigris bucket and
+passes its credentials to the Worker as `WORKERSTACK_S3_*`; no R2 bucket is
+created. (A project an older Bunderhost had moved into R2 is moved back to
+Tigris on its next deploy: `moving bucket … from R2 to Tigris`.)
 
 A project already on a server can stay on the same server; skip this step.
 
@@ -75,14 +74,14 @@ and cuts over.
 
 Follow it with `get_deployment` and `get_deployment_logs`. A move to
 Cloudflare logs, in order: the build, `validating the Worker bundle with
-wrangler`, `moving bucket … from tigris to R2`, `copied N files to R2`, the
-migrations, `uploading Worker`, `live at https://…`, and finally `bucket … now
-lives in R2`. Report it live only when the deployment is terminal and the
-app's readiness is `ok`.
+wrangler`, `reused existing db …`, `reused existing bucket …`, the
+migrations, `uploading Worker … to Cloudflare`, and `live at https://…`.
+Report it live only when the deployment is terminal and the app's readiness
+is `ok`.
 
 ## 4. Copy the files (server target only)
 
-Skip this step on Cloudflare: the deployment copied the files.
+Skip this step on Cloudflare: the Worker reads the same Tigris keys.
 
 A 0.x app stored a file with id `<bucket>/<name>` at the object key
 `<bucket>/<name>`. celld stores a Worker's R2 bucket under
@@ -152,8 +151,6 @@ a write are the person's to try.
   ```
 
 - Update the live URL in the README and agent docs.
-- After a move to Cloudflare, the person deletes the old Tigris bucket once
-  they are satisfied; the reaper only reports it.
 
 ## Rollback
 
@@ -165,4 +162,4 @@ and are invisible to the 0.x app until copied back.
 From Cloudflare there is no switch back: Bunderhost does not move a project
 off Cloudflare, and without a custom domain the old Fly app or server app is
 already destroyed. Fix forward, or redeploy an earlier Workerstack revision.
-The database and the Tigris copy of the files are still intact.
+The database and the files in Tigris are untouched.
