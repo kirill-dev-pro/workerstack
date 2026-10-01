@@ -42,6 +42,14 @@ test('dev runs sqld and Vite; no celld', () => {
   expect('worker' in plan).toBe(false)
 })
 
+test('dev runs Vite under Node, where miniflare can reach workerd', () => {
+  const plan = planDev({ ...base, userEnv: {} })
+  // Under `--bun`, miniflare's undici dispatcher is ignored and its requests
+  // to workerd go to localhost:80.
+  expect(plan.vite.cmd.slice(1, 3)).toEqual(['x', 'vite'])
+  expect(plan.vite.cmd).not.toContain('--bun')
+})
+
 test('a database URL from .env replaces sqld', () => {
   const plan = planDev({
     ...base,

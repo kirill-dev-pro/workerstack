@@ -48,12 +48,14 @@ export function planDev(input: {
           ],
           cwd: directory,
         },
+    // Vite runs under Node through its shebang: under `--bun`, miniflare's
+    // undici dispatcher is ignored and its requests to workerd go to
+    // localhost:80, so the Cloudflare plugin never starts.
     vite: {
       name: 'vite',
       cmd: [
         process.execPath,
         'x',
-        '--bun',
         'vite',
         '--port',
         String(ports.app),
@@ -167,6 +169,11 @@ export async function runDev(options: {
   const external = Boolean(userEnv.WORKERSTACK_DATABASE_URL)
   if (!(await hasViteConfig(directory))) {
     say('vite.config.ts is missing; add workerstack() to it')
+    return 1
+  }
+  // Without Node, Bun stands in for it and the dev server fails to start.
+  if (!Bun.which('node')) {
+    say('workerstack dev runs Vite under Node.js; install Node.js 20 or later')
     return 1
   }
   const sqld = external ? '' : await resolveBinary('sqld', { log: say })
