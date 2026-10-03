@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.3
+
+- `createApiHandlers(app)` from `workerstack/start` registers `GET`, `HEAD`,
+  `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS`. It registered only `GET`,
+  `POST`, `PATCH`, and `DELETE`, so TanStack Start sent a `PUT` request to SSR:
+  the client got 200 with HTML and the write did not run.
+- Expected API errors are no longer logged as
+  `[workerstack-api] 500 Internal Server Error`. The response status was
+  already correct (for example 401 or 409); only the log was wrong, because
+  oRPC v2 errors have no `status` field. Declared errors such as
+  `errors.CONFLICT(...)` are also no longer logged as
+  `Unhandled error in procedure`. Real 5xx errors are still logged.
+
 ## 0.1.2
 
 - Jobs run side by side in the Scheduler. The alarm awaited every handler it
@@ -11,7 +24,7 @@
 - A cold `workerstack dev` starts. The ssr environment found the app's
   dependencies one request at a time, re-optimized on each, and stopped on a
   chunk the previous pass had deleted (`The file does not exist at
-  .../deps_ssr/...`). The Vite plugin now scans the app's code up front.
+.../deps_ssr/...`). The Vite plugin now scans the app's code up front.
 
 ## 0.1.1
 
