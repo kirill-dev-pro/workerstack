@@ -34,13 +34,15 @@ for minutes, say so and stop: Workerstack is the wrong platform for it.
      drizzle-orm drizzle-valibot@0.4.2 @libsql/client better-auth valibot \
      react react-dom @tanstack/react-query @tanstack/react-router @tanstack/react-start
    bun add -d @cloudflare/vite-plugin wrangler drizzle-kit@^0.30.0 vite \
-     @vitejs/plugin-react typescript@^5.8.0 @types/react @types/react-dom @types/bun
+     @vitejs/plugin-react typescript@^5.8.0 @types/react @types/react-dom @types/bun \
+     uncheck@^0.1.1 oxlint@^1.71.0 oxfmt@^0.56.0
    ```
 
 2. **Write the starter files** from [starter files](references/starter-files.md):
-   package.json scripts, Vite, TypeScript and Drizzle config, `.gitignore`,
-   schema, backend, client, session, router, routes, and a test. Rename the
-   example entity to the product's first one.
+   package.json scripts, the copied `.oxfmtrc.json`, Vite, TypeScript and Drizzle
+   config, `.gitignore`, schema, backend, client, session, router, routes, and a
+   test. Rename the example entity to the product's first one. Run
+   `bun run prepare` after writing the scripts to install the commit hook.
 3. **Choose sign-in.** Email and password is in the starter. For a Klaud group
    (Telegram and other communities), see [sign-in with Klaud](references/klaud-sign-in.md).
 4. **Generate and check**, in this order. The blueprint records the
@@ -52,7 +54,7 @@ for minutes, say so and stop: Workerstack is the wrong platform for it.
    bun run blueprint      # workerstack.blueprint.yaml
    bun test
    bun run build          # also generates src/routeTree.gen.ts
-   bun run typecheck
+   bun run check          # lint, formatting, and type checking
    bun run blueprint:check
    ```
 

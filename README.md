@@ -4,6 +4,34 @@ A full-stack framework for Cloudflare Workers. One declaration describes the
 database, auth, API, file buckets, jobs, cron, realtime, and rate limits; the
 TanStack Start app renders on the server in the same Worker.
 
+## Start a new app with an AI agent
+
+In your new app directory, install the agent skills first:
+
+```sh
+bunx workerstack skills
+```
+
+This works in an empty directory, before installing Workerstack. It installs
+the version-matched skills into `.agents/skills` and adds routing instructions
+to `AGENTS.md`.
+
+Then ask your agent:
+
+> Use `create-workerstack-app` to create a Workerstack app for [your idea].
+
+The skill guides setup, local verification, editable lint/format defaults,
+and automatic pre-commit checks. Deployment is available when you're ready.
+If your agent is already running, reload its skills or start a new session.
+In Gemini CLI, use `/skills reload`, then `/skills list` to confirm discovery.
+If the agent doesn't discover the skill, ask it to read
+`.agents/skills/create-workerstack-app/SKILL.md` directly.
+
+For existing apps, use `creating-workerstack-apps`; for a Bunderstack 0.x
+migration, use `migrating-to-workerstack`.
+
+## Install manually
+
 Workerstack started as the Workers rewrite of Bunderstack. Bunderstack 0.x
 stays the choice for apps that need a long-running Bun process (a headless
 browser, native database drivers, large files in memory).

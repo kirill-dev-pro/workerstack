@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+- The new-app skill installs Uncheck, copies editable formatting defaults,
+  and configures staged lint/format pre-commit hooks. Full-project checks
+  include TypeScript; the hook only runs Oxlint and Oxfmt.
+- The README starts with `bunx workerstack skills`, including agent discovery
+  and reload guidance for creating an app from an empty directory.
+
 ## 0.1.3
 
 - `createApiHandlers(app)` from `workerstack/start` registers `GET`, `HEAD`,

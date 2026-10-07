@@ -14,6 +14,9 @@ product's first entity; keep the shape.
     "build": "workerstack build",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "check": "uncheck",
+    "fix": "uncheck --fix",
+    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt",
     "db:generate": "drizzle-kit generate",
     "blueprint": "workerstack blueprint",
     "blueprint:check": "workerstack blueprint --check"
@@ -23,6 +26,29 @@ product's first entity; keep the shape.
 
 Dependencies come from the commands in the skill, not from a copied list, so
 they resolve to current versions.
+
+## `.oxfmtrc.json` and commit checks
+
+Copy [the default formatting config](oxfmtrc.json) to `.oxfmtrc.json` in the
+app root. This is a project-owned copy of Workerstack's style, not a shared
+preset: the app can change it freely. Oxlint uses its default rules; create
+`.oxlintrc.json` when the app needs custom lint rules.
+
+After writing `package.json`, run `bun run prepare` to install the pre-commit
+hook. Future development installs run it automatically. If Git was initialized
+after installation, run `bun run prepare` again.
+
+Each commit runs Uncheck on staged files, applies safe lint and formatting
+fixes, stages those fixes, and blocks on remaining errors. Uncheck preserves
+partially staged changes. The hook only runs Oxlint and Oxfmt; type checking
+runs with `bun run check` on the whole project. Run `bun run check` in CI too,
+since local hooks can be skipped. Run `bun run build` first to generate the
+route tree required by type checking.
+
+`bun run fix` applies lint and formatting fixes and reports type errors.
+Production installs that omit devDependencies should disable lifecycle
+scripts, since `prepare` requires the development tooling. These tools run
+locally with the Bun toolchain, not inside the Worker.
 
 ## `vite.config.ts`
 
