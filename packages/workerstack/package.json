@@ -1,6 +1,6 @@
 {
   "name": "workerstack",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Full-stack framework for Cloudflare Workers: one blueprint declares the API, auth, storage, jobs, cron, and realtime, and SSR with TanStack Start runs next to them.",
   "keywords": [
     "backend",
@@ -163,6 +163,14 @@
     "./start-auth": {
       "types": "./dist/start/auth-client.d.ts",
       "default": "./dist/start/auth-client.js"
+    },
+    "./managed-auth": {
+      "types": "./dist/managed-auth/index.d.ts",
+      "default": "./dist/managed-auth/index.js"
+    },
+    "./managed-auth/client": {
+      "types": "./dist/managed-auth/client.d.ts",
+      "default": "./dist/managed-auth/client.js"
     }
   },
   "scripts": {
@@ -179,7 +187,8 @@
     "@standardserver/core": "0.7.1",
     "esbuild": "^0.28.2",
     "valibot": "1.4.2",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "jose": "^6.2.7"
   },
   "devDependencies": {
     "@libsql/client": ">=0.14.0",

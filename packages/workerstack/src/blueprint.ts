@@ -4,6 +4,7 @@ import { parse, stringify } from 'yaml'
 import type { WorkerstackManifest } from './manifest'
 
 import { parseCron } from './jobs/cron'
+import { managedIdentitySchema } from './manifest'
 import { validateStandardSchema } from './standard-schema'
 
 export type MigrationMode = 'migrations' | 'push'
@@ -53,6 +54,7 @@ type BlueprintBody = {
     realtime?: { required: true }
     messaging: WorkerstackManifest['messaging']
   }
+  authentication?: WorkerstackManifest['authentication']
   environment: BlueprintEnvVar[]
   /** Application-declared procedures. Absent in blueprints written before 0.23.0. */
   api?: { operations: WorkerstackManifest['api']['operations'] }
@@ -136,6 +138,7 @@ const generatorEntry = open({
 })
 
 const sharedEntries = {
+  authentication: v.optional(open({ managedIdentity: managedIdentitySchema })),
   workerstack: open({
     entry: relativePath,
     manifestVersion: v.literal(4),
@@ -414,6 +417,9 @@ export function blueprintFromManifest(args: {
         ),
       },
     },
+    ...(args.manifest.authentication
+      ? { authentication: args.manifest.authentication }
+      : {}),
     environment: sortBy(args.manifest.environment, (entry) => entry.key),
     api: { operations: args.manifest.api.operations },
     background: {

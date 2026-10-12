@@ -1,7 +1,7 @@
 version: 2
 generator:
   name: workerstack
-  version: 0.1.3
+  version: 0.1.5
 application:
   framework: bun-ssr
   scripts:
@@ -11,6 +11,12 @@ application:
     main: workerstack/workers/entry
     compatibilityDate: 2026-09-28
     assets: dist/client
+authentication:
+  managedIdentity:
+    protocolVersion: 2
+    adapterVersion: 2
+    discovery: true
+    callbackPath: /api/auth/callback/bunderhost
 workerstack:
   entry: src/workerstack.ts
   manifestVersion: 4
@@ -110,6 +116,10 @@ environment:
     scope: server
     sensitive: true
   - key: APP_URL
+    required: false
+    scope: server
+    sensitive: true
+  - key: BUNDERHOST_AUTH_CONFIG
     required: false
     scope: server
     sensitive: true

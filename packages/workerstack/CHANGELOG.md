@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5
+
+- Automatically installs Bunderhost managed identity when the host supplies the
+  sensitive server configuration and the application has Better Auth tables.
+  Set `auth.managedIdentity: false` to opt out.
+- Declares managed identity capabilities in the deployment blueprint and keeps
+  its credentials out of client environment access.
+- Exposes dynamic providers and provider-specific sign-in through
+  `createStartAuthClient().managed.providers()` and `signIn.managed(...)`.
+- Publishes the shared server adapter at `workerstack/managed-auth` and the
+  browser-only helper at `workerstack/managed-auth/client`.
+
 ## 0.1.4
 
 - The new-app skill installs Uncheck, copies editable formatting defaults,

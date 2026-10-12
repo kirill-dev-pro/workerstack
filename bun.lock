@@ -116,7 +116,7 @@
     },
     "packages/workerstack": {
       "name": "workerstack",
-      "version": "0.1.0-beta.0",
+      "version": "0.1.5",
       "bin": {
         "workerstack": "./dist/cli.js",
       },
@@ -125,6 +125,7 @@
         "@standard-schema/spec": "1.1.0",
         "@standardserver/core": "0.7.1",
         "esbuild": "^0.28.2",
+        "jose": "^6.2.7",
         "valibot": "1.4.2",
         "yaml": "^2.9.0",
       },

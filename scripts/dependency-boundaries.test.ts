@@ -189,6 +189,7 @@ describe('published dependency boundaries', () => {
       '@standardserver/core',
       // celld bundles the Worker with it under `workerstack dev`.
       'esbuild',
+      'jose',
       'valibot',
       'yaml',
     ])

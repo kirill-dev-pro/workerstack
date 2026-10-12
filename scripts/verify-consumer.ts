@@ -204,6 +204,7 @@ await writeFile(
   join(app, 'src/app.ts'),
   `import { workerstack, defineAuth, type ApiContext } from 'workerstack'
 import { libsql } from 'workerstack/libsql'
+import { managedIdentityPlugins, readManagedAuth } from 'workerstack/managed-auth'
 import { generate } from 'workerstack/typeid'
 import { os } from '@orpc/server'
 import { admin, mcp, organization } from 'better-auth/plugins'
@@ -212,6 +213,9 @@ import { passkey } from '@better-auth/passkey'
 import * as v from 'valibot'
 
 import * as schema from './schema'
+
+export const managedPlugins = managedIdentityPlugins({})
+export const managedConfig = readManagedAuth({})
 
 // Shared middleware over the real app context — needs ApiContext exported.
 const timing = os
@@ -283,6 +287,7 @@ import { createSyncClient } from 'workerstack/sync'
 import { workerstackStart } from 'workerstack/start'
 import { createStartAuthClient } from 'workerstack/start-auth'
 import type { TestFixture } from 'workerstack/testing'
+import { createManagedAuthClient } from 'workerstack/managed-auth/client'
 import { QueryClient } from '@tanstack/react-query'
 
 import type { App } from './app'
@@ -325,10 +330,31 @@ export const feed = sync.creditBalances.scopedCollection({
 
 export const startSetup = workerstackStart<App>()
 export const authClient = createStartAuthClient()
+export const managedClient = createManagedAuthClient()
+export const discoverProviders = () => authClient.managed.providers()
+export const managedSignIn = () => authClient.signIn.managed({ provider: 'github', callbackURL: '/profile' })
 
 export async function realtime(): Promise<void> {
   await sync.realtime?.subscribe(['creditBalances'])
 }
+`,
+)
+
+await writeFile(
+  join(app, 'src/managed-smoke.ts'),
+  `
+import { betterAuth } from 'better-auth'
+import { managedIdentityPlugins } from 'workerstack/managed-auth'
+const appURL = 'https://app.example.com'
+const original = globalThis.fetch
+try {
+  globalThis.fetch = (async () => Response.json({ protocolVersion: 2, revision: 1, enabled: true, providers: [{ id: 'github', label: 'GitHub', availability: 'ready' }] })) as unknown as typeof fetch
+  const auth = betterAuth({ baseURL: appURL, secret: 's'.repeat(40), logger: { disabled: true }, plugins: managedIdentityPlugins({ APP_URL: appURL, BUNDERHOST_AUTH_CONFIG: JSON.stringify({ version: 2, issuer: 'https://auth.example.com', clientId: 'client', clientSecret: 's'.repeat(40), revision: 1 }) }) })
+  const response = await auth.handler(new Request(appURL + '/api/auth/managed/sign-in', { method: 'POST', headers: { origin: appURL, 'content-type': 'application/json' }, body: JSON.stringify({ provider: 'github', callbackURL: '/' }) }))
+  const data = await response.json() as { url?: string }
+  if (response.status !== 200 || !data.url || new URL(data.url).searchParams.get('bunderhost_provider') !== 'github' || !response.headers.getSetCookie().length) throw new Error('packed managed auth failed')
+  console.log('managed:ok')
+} finally { globalThis.fetch = original }
 `,
 )
 
@@ -372,6 +398,11 @@ const smokeLine = smoke.out
   .split('\n')
   .find((line) => line.startsWith('handler:'))
 console.log(`\nruntime smoke: ${smokeLine ?? smoke.out.trim()}`)
+
+const managedSmoke = await run(['bun', 'src/managed-smoke.ts'], app)
+console.log('\npacked managed auth: ' + managedSmoke.out.trim())
+if (managedSmoke.code !== 0)
+  throw new Error('packed managed auth verification failed')
 
 if (!keep) await rm(workDir, { recursive: true, force: true })
 
