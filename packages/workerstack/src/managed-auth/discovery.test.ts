@@ -41,3 +41,18 @@ test('discovery includes only ready allowed providers and never exposes configur
     globalThis.fetch = original
   }
 })
+
+test('discovery uses Workers-compatible manual redirects and rejects redirects', async () => {
+  const original = globalThis.fetch
+  let mode: RequestRedirect | undefined
+  globalThis.fetch = (async (_input, options) => {
+    mode = options?.redirect
+    return new Response(null, {status: 302, headers: {location: 'https://untrusted.example'}})
+  }) as typeof fetch
+  try {
+    const result = await getManagedProviders(config)
+    expect(mode).toBe('manual')
+    expect(result.state).toBe('unavailable')
+    expect(result.providers).toEqual([])
+  } finally { globalThis.fetch = original }
+})

@@ -47,7 +47,7 @@ export async function getManagedProviders(
   try {
     const response = await fetch(
       `${config.issuer}/internal/public/clients/${encodeURIComponent(config.clientId)}/providers`,
-      { redirect: 'error', signal: AbortSignal.timeout(5000) },
+      { redirect: 'manual', signal: AbortSignal.timeout(5000) },
     )
     if (!response.ok) throw new Error('Identity discovery unavailable')
     const value = (await boundedJSON(response)) as {
