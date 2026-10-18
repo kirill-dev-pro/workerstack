@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.7
+
+- The job queue's claim query no longer scans finished rows. `claim()` filters
+  on `type`, `status` and `run_at`, but the widest index was `(type, status)`,
+  so SQLite planned the claim through `(type, run_at)` and filtered `status`
+  row by row across every finished row of that type. Succeeded rows are kept
+  for 24 hours, so a per-minute cron left ~1,440 of them for each claim to walk
+  — on one production app a single claim read ~2,100 rows and ran 108,000 times
+  a day, 98% of the database's total row reads. The new `bjq_ready`
+  `(type, status, run_at)` index makes a claim read only the rows it returns,
+  and covers the `(type, status)` running-count probe as a prefix, so
+  `bjq_type_status` is dropped.
+- The succeeded-row retention sweep no longer scans every succeeded row. It
+  filters on `finished_at`, which `bjq_claim` does not carry; the new
+  `bjq_reap` `(status, finished_at)` index covers it.
+
 ## 0.1.5
 
 - Automatically installs Bunderhost managed identity when the host supplies the

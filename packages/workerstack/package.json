@@ -1,18 +1,18 @@
 {
   "name": "workerstack",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Full-stack framework for Cloudflare Workers: one blueprint declares the API, auth, storage, jobs, cron, and realtime, and SSR with TanStack Start runs next to them.",
   "keywords": [
     "backend",
     "better-auth",
     "cloudflare",
-    "workers",
-    "durable-objects",
     "drizzle",
+    "durable-objects",
     "orpc",
     "realtime",
     "tanstack-start",
-    "typesafe"
+    "typesafe",
+    "workers"
   ],
   "homepage": "https://github.com/kirill-dev-pro/workerstack#readme",
   "license": "MIT",
@@ -186,9 +186,9 @@
     "@standard-schema/spec": "1.1.0",
     "@standardserver/core": "0.7.1",
     "esbuild": "^0.28.2",
+    "jose": "^6.2.7",
     "valibot": "1.4.2",
-    "yaml": "^2.9.0",
-    "jose": "^6.2.7"
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@libsql/client": ">=0.14.0",

@@ -183,6 +183,20 @@ test('jobs table indexes newest cron rows by type and runAt', () => {
   expect(names).toContain('bjq_type_run_at')
 })
 
+test('jobs table indexes the claim and reap predicates in full', () => {
+  const columnsByIndex = new Map(
+    getSqliteTableConfig(workerstackJobs).indexes.map((entry) => [
+      entry.config.name,
+      entry.config.columns.map((column) => (column as { name: string }).name),
+    ]),
+  )
+  // claim(): type + status + run_at. Without run_at the index leaves every
+  // finished row of the type to a row-by-row filter.
+  expect(columnsByIndex.get('bjq_ready')).toEqual(['type', 'status', 'run_at'])
+  // reapSucceeded(): status + finished_at.
+  expect(columnsByIndex.get('bjq_reap')).toEqual(['status', 'finished_at'])
+})
+
 test('withInternalTables merges the jobs table', () => {
   const merged = withInternalTables({})
   expect(isTable(merged.workerstackJobs)).toBe(true)
