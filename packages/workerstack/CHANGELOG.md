@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.8
+
+- A queue pump no longer probes every definition. It used to run a
+  running-count select and a claim update per declared job and cron on every
+  pass, and the scheduler pumps again each time a handler finishes, so an app
+  with ten definitions spent ~20 statements per completed job even when only
+  one type had work. One grouped read now snapshots due pending and running
+  rows per type, and only types with due work and free capacity are claimed.
+  An idle pump costs a single statement; expired-lease recovery runs only when
+  a running row exists.
+- `nextDueAt` reads the earliest pending `run_at` and the earliest running
+  lease end in one statement instead of two.
+
 ## 0.1.7
 
 - The job queue's claim query no longer scans finished rows. `claim()` filters
