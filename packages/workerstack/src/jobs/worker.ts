@@ -1,6 +1,6 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
 // recover expired leases → reap old succeeded rows → claim and run queue jobs.
-import { and, desc, eq, inArray, isNotNull, lt, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm'
 
 import type { AnyDb } from '../dialect'
 import type { WorkerstackLogger } from '../logging'
@@ -87,6 +87,9 @@ export type PumpResult = {
 type CronCursor = {
   checkedThrough: number
 }
+
+/** Per-type counts of due pending and running rows, from one grouped query. */
+type QueueCounts = Map<string, { pending: number; running: number }>
 
 function jobEvent(
   event: string,
@@ -291,8 +294,44 @@ export function createJobRunner(deps: {
     }
   }
 
-  /** running rows whose lease expired → pending (or failed when exhausted). */
-  async function recoverExpiredLeases(now: number) {
+  /** One grouped read replaces a running-count probe and a claim attempt per
+   *  definition: a pump then touches only the types that have due work. */
+  async function countQueue(now: number): Promise<QueueCounts> {
+    const rows = await db
+      .select({
+        type: t.type,
+        status: t.status,
+        count: sql<number | string>`count(*)`,
+      })
+      .from(t)
+      .where(
+        or(
+          and(eq(t.status, 'pending'), lte(t.runAt, now)),
+          eq(t.status, 'running'),
+        ),
+      )
+      .groupBy(t.type, t.status)
+    const counts: QueueCounts = new Map()
+    for (const row of rows) {
+      let entry = counts.get(row.type)
+      if (!entry) {
+        entry = { pending: 0, running: 0 }
+        counts.set(row.type, entry)
+      }
+      if (row.status === 'pending') entry.pending = Number(row.count)
+      else entry.running = Number(row.count)
+    }
+    return counts
+  }
+
+  function anyRunning(counts: QueueCounts): boolean {
+    for (const entry of counts.values()) if (entry.running > 0) return true
+    return false
+  }
+
+  /** running rows whose lease expired → pending (or failed when exhausted).
+   *  Returns how many rows it touched. */
+  async function recoverExpiredLeases(now: number): Promise<number> {
     const expired: (JobRow & {
       lastError: string | null
       lockedUntil: number
@@ -359,6 +398,7 @@ export function createJobRunner(deps: {
           .where(ownershipPredicate(row.id, owner))
       }
     }
+    return expired.length
   }
 
   async function reapSucceeded(now: number) {
@@ -411,12 +451,11 @@ export function createJobRunner(deps: {
     type: string,
     def: AnyBackgroundDefinition,
     now: number,
+    counts: QueueCounts,
   ): Promise<ClaimedWork[]> {
-    const runningRows = await db
-      .select({ id: t.id })
-      .from(t)
-      .where(and(eq(t.type, type), eq(t.status, 'running')))
-    let available = capacityFor(def) - runningRows.length
+    const entry = counts.get(type)
+    if (!entry || entry.pending === 0) return []
+    let available = capacityFor(def) - entry.running
     if (available <= 0) return []
 
     const leaseUntil = now + leaseDurationFor(def)
@@ -586,12 +625,15 @@ export function createJobRunner(deps: {
     }
   }
 
-  async function runClaimable(now: number): Promise<TickResult> {
+  async function runClaimable(
+    now: number,
+    counts: QueueCounts,
+  ): Promise<TickResult> {
     const claimedWork: ClaimedWork[] = []
     let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      const claimed = await claimAvailable(type, def, now)
+      const claimed = await claimAvailable(type, def, now, counts)
       totalClaimed += claimed.length
       claimedWork.push(...claimed)
     }
@@ -610,13 +652,20 @@ export function createJobRunner(deps: {
     return { claimed: totalClaimed, ran, failed }
   }
 
-  async function maintain(now: number) {
+  /** Housekeeping, then a queue snapshot the claim phase works from. A pump
+   *  with nothing due costs one read; a lease recovery re-reads the snapshot
+   *  since it moves rows between the counted states. */
+  async function maintain(now: number): Promise<QueueCounts> {
     await materializeCronSlots(now)
-    await recoverExpiredLeases(now)
+    let counts = await countQueue(now)
+    if (anyRunning(counts) && (await recoverExpiredLeases(now)) > 0) {
+      counts = await countQueue(now)
+    }
     if (now - lastReapAt >= REAP_INTERVAL_MS) {
       lastReapAt = now
       await reapSucceeded(now)
     }
+    return counts
   }
 
   function startWork(
@@ -647,7 +696,7 @@ export function createJobRunner(deps: {
     now: number = Date.now(),
     opts: PumpOptions = {},
   ): Promise<PumpResult> {
-    await maintain(now)
+    const counts = await maintain(now)
     let claimed = 0
     for (const [name, def] of Object.entries(defs)) {
       if (
@@ -657,7 +706,7 @@ export function createJobRunner(deps: {
         continue
       }
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      const work = await claimAvailable(type, def, now)
+      const work = await claimAvailable(type, def, now, counts)
       claimed += work.length
       for (const item of work) startWork(type, item, now)
     }
@@ -674,8 +723,8 @@ export function createJobRunner(deps: {
 
   return {
     async tick(now: number = Date.now()): Promise<TickResult> {
-      await maintain(now)
-      return runClaimable(now)
+      const counts = await maintain(now)
+      return runClaimable(now, counts)
     },
     pump,
     drain,
@@ -686,16 +735,19 @@ export function createJobRunner(deps: {
      */
     async nextDueAt(now: number, until: number): Promise<number | null> {
       const candidates: number[] = []
-      const [pending] = await db
-        .select({ at: sql<number | string | null>`min(${t.runAt})` })
+      const [due] = await db
+        .select({
+          pending: sql<
+            number | string | null
+          >`min(case when ${t.status} = 'pending' then ${t.runAt} end)`,
+          running: sql<
+            number | string | null
+          >`min(case when ${t.status} = 'running' then ${t.lockedUntil} end)`,
+        })
         .from(t)
-        .where(eq(t.status, 'pending'))
-      if (pending?.at != null) candidates.push(Number(pending.at))
-      const [running] = await db
-        .select({ at: sql<number | string | null>`min(${t.lockedUntil})` })
-        .from(t)
-        .where(eq(t.status, 'running'))
-      if (running?.at != null) candidates.push(Number(running.at))
+        .where(inArray(t.status, ['pending', 'running']))
+      if (due?.pending != null) candidates.push(Number(due.pending))
+      if (due?.running != null) candidates.push(Number(due.running))
       for (const [name, def] of Object.entries(defs)) {
         if (def.kind !== 'cron') continue
         const cursor = await cronCursor(`${CRON_PREFIX}${name}`, now)

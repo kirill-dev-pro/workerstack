@@ -831,3 +831,48 @@ test('the reap runs at most hourly', async () => {
   const remaining = await db.select().from(workerstackJobs)
   expect(remaining.filter((row) => row.status === 'succeeded')).toHaveLength(0)
 })
+
+test('an idle pump costs one read regardless of how many definitions exist', async () => {
+  const gate = deferred()
+  const defs: JobsDefs = {}
+  for (let i = 0; i < 6; i++) {
+    defs[`job${i}`] = { kind: 'job', handler: () => gate.promise }
+  }
+  for (let i = 0; i < 4; i++) {
+    defs[`cron${i}`] = {
+      kind: 'cron',
+      schedule: '0 0 1 1 *',
+      handler: async () => {},
+    }
+  }
+  const r = runner(defs)
+  const now = Date.now()
+  // Warm the cron cursors; they are hydrated once per runner.
+  await r.pump(now)
+
+  const client = db.$client as unknown as {
+    execute: (...args: unknown[]) => Promise<unknown>
+  }
+  const original = client.execute
+  let statements = 0
+  client.execute = function (this: unknown, ...args: unknown[]) {
+    statements++
+    return original.apply(this, args)
+  }
+  try {
+    const cycle = await r.pump(now + 1_000)
+    expect(cycle.claimed).toBe(0)
+    expect(statements).toBe(1)
+
+    await enqueueJob(db, defs, 'job3', undefined, { runAt: now + 1_500 })
+    statements = 0
+    const busy = await r.pump(now + 2_000)
+    expect(busy.claimed).toBe(1)
+    // The snapshot read, then one claim for the single type with due work.
+    expect(statements).toBe(2)
+    gate.resolve()
+    await r.drain()
+  } finally {
+    client.execute = original
+  }
+})
