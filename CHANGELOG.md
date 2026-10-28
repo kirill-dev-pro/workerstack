@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- Reports errors and performance to Bunderhost when the platform supplies
+  `BUNDERHOST_TELEMETRY_URL` and `BUNDERHOST_TELEMETRY_TOKEN`: unhandled
+  exceptions in API procedures, failed job and cron runs on every attempt,
+  SSR renders that throw, and request and job durations as window deltas.
+  A Worker has no timer, so the entry flushes through `waitUntil` after each
+  request and each scheduler tick. Without the variables nothing is sent.
+- `app.telemetry.captureException(error, { source: 'api', … })` reports an
+  error the application caught itself.
+
 ## 0.1.8
 
 - A queue pump no longer probes every definition. It used to run a
