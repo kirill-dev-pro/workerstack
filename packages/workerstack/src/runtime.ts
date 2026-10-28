@@ -97,6 +97,14 @@ import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
 import { sweepOrphans } from './storage/sweep'
+import { telemetryMiddleware } from './telemetry/middleware'
+import {
+  createTelemetry,
+  noopTelemetry,
+  type Telemetry,
+  telemetryFromEnv,
+} from './telemetry/telemetry'
+import { WORKERSTACK_VERSION } from './version'
 
 /** Base Better Auth contract used by framework internals and API context. */
 export type AuthInstance = Auth
@@ -185,6 +193,12 @@ export type WorkerstackApp<
   >
   /** Typed custom row publication; enabled=false/no-op when realtime is off. */
   realtime: RealtimeFacade<TSchema>
+  /**
+   * Error and performance reporting to Bunderhost. A no-op without the
+   * platform's variables; `captureException` lets application code report
+   * what it caught and handled itself.
+   */
+  telemetry: Telemetry
   close(): Promise<void>
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
@@ -338,6 +352,17 @@ export async function materializeWorkerstack<
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
   const lifecycle = new Lifecycle()
+  // Reports to Bunderhost only when the platform supplied the two variables.
+  // A Worker has no timer: the entry calls `telemetry.flushIfDue()` through
+  // `waitUntil` after each request and each scheduler tick.
+  const telemetryConfig = telemetryFromEnv(env, {
+    runtime: 'workerstack',
+    version: WORKERSTACK_VERSION,
+  })
+  const telemetry: Telemetry = telemetryConfig
+    ? createTelemetry(telemetryConfig, { logger, intervalMs: 10_000 })
+    : noopTelemetry
+  if (telemetryConfig) lifecycle.add(() => telemetry.stop())
   const {
     db,
     driver,
@@ -526,6 +551,7 @@ export async function materializeWorkerstack<
           defs: resolvedDefs,
           ctx: { db: userDb, env, messaging, storage, realtime },
           logger,
+          telemetry,
         })
       : undefined
     let enqueueNow: number | undefined
@@ -622,7 +648,11 @@ export async function materializeWorkerstack<
       storage: storageApiRouter as Record<string, unknown>,
       realtime: realtimeApiRouter as Record<string, unknown> | undefined,
       custom: customApiRouter as Record<string, unknown> | undefined,
-      middleware: options.middleware,
+      // Outermost, so every procedure is timed and an unhandled throw is
+      // captured regardless of what the application's middleware does.
+      middleware: telemetry.enabled
+        ? [telemetryMiddleware(telemetry), ...(options.middleware ?? [])]
+        : options.middleware,
       readiness,
     }) as any
 
@@ -804,6 +834,7 @@ export async function materializeWorkerstack<
       // narrows `enqueue` per-app from the declared job defs — same relationship
       // as `userDb` above.
       jobs: jobs as never,
+      telemetry,
       close: () => lifecycle.close(),
       get status() {
         return lifecycle.status

@@ -128,6 +128,8 @@ export function createSchedulerClass(
         }
       } finally {
         this.poke = undefined
+        // Job durations and failures leave the isolate with the tick.
+        if (app.telemetry.enabled) await app.telemetry.flush().catch(() => {})
       }
       const now = Date.now()
       // Notifies during the loop set alarms it has already served; drop a

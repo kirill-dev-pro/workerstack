@@ -46,6 +46,12 @@ export type BaseEnv = {
   BUNDERHOST_ENVIRONMENT_ID?: string
   /** Deployed commit SHA, injected by the platform. Reported by readiness. */
   WORKERSTACK_REVISION?: string
+  /**
+   * Where and as whom the application reports errors and performance to
+   * Bunderhost. Both or neither; without them the reporter is a no-op.
+   */
+  BUNDERHOST_TELEMETRY_URL?: string
+  BUNDERHOST_TELEMETRY_TOKEN?: string
 }
 
 type InferVars<T> =
@@ -136,6 +142,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     WORKERSTACK_BLUEPRINT_PATH: source.WORKERSTACK_BLUEPRINT_PATH,
     BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
     WORKERSTACK_REVISION: source.WORKERSTACK_REVISION,
+    BUNDERHOST_TELEMETRY_URL: source.BUNDERHOST_TELEMETRY_URL,
+    BUNDERHOST_TELEMETRY_TOKEN: source.BUNDERHOST_TELEMETRY_TOKEN,
   }
   if (isProduction && !source.AUTH_SECRET) {
     issues.push('AUTH_SECRET: required in production')

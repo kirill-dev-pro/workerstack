@@ -12,6 +12,23 @@ import { stub } from './types'
 
 export type WorkerApp = {
   handler(request: Request): Promise<Response>
+  telemetry: {
+    enabled: boolean
+    captureException(
+      error: unknown,
+      context: {
+        source: 'http'
+        [key: string]: string | number | boolean | undefined
+      },
+    ): void
+    recordRequest(sample: {
+      route: string
+      status: number
+      durationMs: number
+    }): void
+    flushIfDue(): Promise<void>
+    flush(): Promise<void>
+  }
   jobs: {
     tick(now?: number): Promise<{ claimed: number }>
     pump(now?: number, opts?: PumpOptions): Promise<PumpResult>

@@ -31,11 +31,16 @@ export function createWorker(backend: WorkerstackBackend<any>) {
       rememberWorkerEnv(env)
       startScheduler(env, ctx)
       const app = await appFor(backend, env, 'fetch')
-      const response = await app.handler(request)
-      // A path that reached the Worker but has no route: let the SPA answer.
-      if (response.status === 404 && env.ASSETS)
-        return env.ASSETS.fetch(request)
-      return response
+      try {
+        const response = await app.handler(request)
+        // A path that reached the Worker but has no route: let the SPA answer.
+        if (response.status === 404 && env.ASSETS)
+          return env.ASSETS.fetch(request)
+        return response
+      } finally {
+        // Deltas leave the isolate between requests, never on a timer.
+        if (app.telemetry.enabled) ctx.waitUntil(app.telemetry.flushIfDue())
+      }
     },
     async scheduled(
       _controller: unknown,
