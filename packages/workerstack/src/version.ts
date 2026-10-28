@@ -3,4 +3,4 @@
  * reading package.json at runtime. `version.test.ts` keeps it equal to
  * package.json; bump both on release.
  */
-export const WORKERSTACK_VERSION = '0.2.0'
+export const WORKERSTACK_VERSION = '0.2.1'

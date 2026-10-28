@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1
+
+- A Worker reports what it saw before it is evicted. Telemetry left an
+  isolate only once ten seconds had passed since the isolate started, so the
+  first request of a fresh isolate was never sent, and an app without cron
+  that gets a request now and then reported nothing at all, errors included.
+  The first window of an isolate now goes out at once; later windows still
+  wait ten seconds.
+- An error goes out with the request that raised it instead of waiting for
+  the window. An error captured while an earlier batch was still being sent
+  was left in the queue when the request finished, and lost with the isolate.
+
 ## 0.2.0
 
 - Reports errors and performance to Bunderhost when the platform supplies

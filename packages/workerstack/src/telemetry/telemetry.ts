@@ -181,7 +181,10 @@ export function createTelemetry(
   let jobLatency = new Map<string, Histogram>()
   let errorsBySource = new Map<string, number>()
   let routes = new Set<string>()
-  let lastFlushAt = now()
+  // A Worker isolate may serve one request and be evicted, so the first
+  // window an isolate collects goes out at once instead of ten seconds later,
+  // when nothing may be left to send it.
+  let lastFlushAt = Number.NEGATIVE_INFINITY
   let lastWarnAt = 0
   let timer: ReturnType<typeof setInterval> | undefined
   let inFlight: Promise<void> | undefined
@@ -411,11 +414,11 @@ export function createTelemetry(
     },
     flush,
     async flushIfDue() {
-      if (
-        errors.length >= MAX_QUEUED_ERRORS ||
-        now() - lastFlushAt >= intervalMs
-      )
-        await flush()
+      // A send already under way carries only what was queued before it;
+      // wait for it so what came in meanwhile is judged on its own.
+      if (inFlight) await inFlight
+      // Errors are rare and each one matters: they never wait for the window.
+      if (errors.length > 0 || now() - lastFlushAt >= intervalMs) await flush()
     },
     start() {
       if (timer) return

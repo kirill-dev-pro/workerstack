@@ -75,12 +75,9 @@ test('configuration needs both variables and picks up the Worker release', () =>
   expect(noopTelemetry.enabled).toBe(false)
 })
 
-test('flushIfDue honours the ten-second Worker window', async () => {
+test('flushIfDue sends the first window of an isolate at once', async () => {
   const h = harness()
   h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
-  await h.telemetry.flushIfDue()
-  expect(h.batches).toHaveLength(0)
-  h.advance(10_000)
   await h.telemetry.flushIfDue()
   expect(h.batches).toHaveLength(1)
   expect(h.batches[0]).toMatchObject({
@@ -92,6 +89,28 @@ test('flushIfDue honours the ten-second Worker window', async () => {
     labels: { route: 'a', status: '2xx' },
     value: 1,
   })
+})
+
+test('flushIfDue then honours the ten-second Worker window', async () => {
+  const h = harness()
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  await h.telemetry.flushIfDue()
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  await h.telemetry.flushIfDue()
+  expect(h.batches).toHaveLength(1)
+  h.advance(10_000)
+  await h.telemetry.flushIfDue()
+  expect(h.batches).toHaveLength(2)
+})
+
+test('flushIfDue sends an error without waiting for the window', async () => {
+  const h = harness()
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  await h.telemetry.flushIfDue()
+  h.telemetry.captureException(new Error('boom'), { source: 'api' })
+  await h.telemetry.flushIfDue()
+  expect(h.batches).toHaveLength(2)
+  expect(h.batches[1]!.errors).toHaveLength(1)
 })
 
 test('a failing endpoint drops the window and warns once', async () => {
@@ -205,23 +224,23 @@ test('a Worker reports API failures through waitUntil and stays silent without t
       ).status,
     ).toBe(500)
     await Promise.all(first.pending)
-    // The window has not elapsed: nothing left the isolate yet.
-    expect(received).toHaveLength(0)
-    const { appFor } = await import('../workers/app')
-    const app = await appFor(backend, env, 'fetch')
-    await app.telemetry.flush()
-    expect(received).toHaveLength(1)
+    // The isolate's first window and the error left through waitUntil, with
+    // no later request or tick needed: an idle isolate may never get one.
+    expect(received).toHaveLength(2)
     expect(received[0]).toMatchObject({
       runtime: 'workerstack',
       release: 'deadbeef',
     })
-    expect(received[0]!.errors.map((e) => e.message)).toEqual(['kaboom'])
-    expect(received[0]!.metrics).toContainEqual({
+    expect(received.flatMap((b) => b.errors.map((e) => e.message))).toEqual([
+      'kaboom',
+    ])
+    const metrics = received.flatMap((b) => b.metrics)
+    expect(metrics).toContainEqual({
       name: 'bh_app_requests',
       labels: { route: 'refuse', status: '4xx' },
       value: 1,
     })
-    expect(received[0]!.metrics).toContainEqual({
+    expect(metrics).toContainEqual({
       name: 'bh_app_requests',
       labels: { route: 'boom', status: '5xx' },
       value: 1,
@@ -241,7 +260,7 @@ test('a Worker reports API failures through waitUntil and stays silent without t
       ).status,
     ).toBe(500)
     await Promise.all(c.pending)
-    expect(received).toHaveLength(1)
+    expect(received).toHaveLength(2)
   } finally {
     server.stop(true)
   }
