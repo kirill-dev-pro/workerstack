@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- An error report carries the errors it wraps. Drizzle reports a failed query
+  as "Failed query: …" and keeps the driver's error in `cause`, which was
+  dropped, so Bunderhost showed the SQL but never why it failed. The `cause`
+  chain now follows the stack as `Caused by:` lines; the message, and with it
+  how errors group, is unchanged.
+
 ## 0.2.1
 
 - A Worker reports what it saw before it is evicted. Telemetry left an

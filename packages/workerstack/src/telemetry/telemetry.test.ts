@@ -11,6 +11,7 @@ import { createWorker } from '../workers/index'
 import { telemetryMiddleware } from './middleware'
 import {
   createTelemetry,
+  describeError,
   noopTelemetry,
   statusClass,
   telemetryFromEnv,
@@ -73,6 +74,26 @@ test('configuration needs both variables and picks up the Worker release', () =>
   })
   expect(statusClass(404)).toBe('4xx')
   expect(noopTelemetry.enabled).toBe(false)
+})
+
+test('an error keeps its own message and carries the cause chain in the stack', () => {
+  const driver = new Error('SQLITE_BUSY: database is locked')
+  const wrapper = new Error('Failed query: select "id" from "agents"', {
+    cause: driver,
+  })
+  const described = describeError(wrapper)
+  expect(described.message).toBe('Failed query: select "id" from "agents"')
+  expect(described.stack).toStartWith('Error: Failed query')
+  expect(described.stack).toContain(
+    'Caused by: Error: SQLITE_BUSY: database is locked',
+  )
+
+  const looped = new Error('outer')
+  looped.cause = looped
+  expect(describeError(looped).stack).not.toContain('Caused by')
+  expect(
+    describeError(new Error('outer', { cause: { code: 'ECONNRESET' } })).stack,
+  ).toContain('Caused by: {"code":"ECONNRESET"}')
 })
 
 test('flushIfDue sends the first window of an isolate at once', async () => {
