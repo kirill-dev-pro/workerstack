@@ -55,27 +55,40 @@ export function inspectConfig(
       ? config.api(createApiBuilder())
       : config.api
 
-  const manifest = buildManifest({
-    schema: config.schema,
-    auth: typeof config.auth === 'function' ? 'builder' : config.auth,
-    dialect,
-    migrationsDirectory: config.database.migrations ?? './migrations',
-    storage: resolveBuckets(config.storage, {}),
-    envConfig,
-    messaging: config.messaging,
-    realtime: Boolean(config.realtime),
-    api: describeApiOperations(customApiRouter),
-    jobs: config.storage
-      ? {
-          ...jobsDefs,
-          [STORAGE_SWEEP_JOB_NAME]: {
-            kind: 'cron',
-            schedule: STORAGE_SWEEP_SCHEDULE,
-            handler: () => {},
-          },
-        }
-      : jobsDefs,
-  })
+  // The manifest describes the app to a host (blueprint, `inspect`). Starting
+  // an app needs it only to check a hosted blueprint file, so it is built on
+  // first read: a Worker isolate starts without walking every procedure.
+  const describe = (): WorkerstackManifest =>
+    buildManifest({
+      schema: config.schema,
+      auth: typeof config.auth === 'function' ? 'builder' : config.auth,
+      dialect,
+      migrationsDirectory: config.database.migrations ?? './migrations',
+      storage: resolveBuckets(config.storage, {}),
+      envConfig,
+      messaging: config.messaging,
+      realtime: Boolean(config.realtime),
+      api: describeApiOperations(customApiRouter),
+      jobs: config.storage
+        ? {
+            ...jobsDefs,
+            [STORAGE_SWEEP_JOB_NAME]: {
+              kind: 'cron',
+              schedule: STORAGE_SWEEP_SCHEDULE,
+              handler: () => {},
+            },
+          }
+        : jobsDefs,
+    })
+  let manifest: WorkerstackManifest | undefined
 
-  return { config, jobsDefs, customApiRouter, manifest, env }
+  return {
+    config,
+    jobsDefs,
+    customApiRouter,
+    get manifest() {
+      return (manifest ??= describe())
+    },
+    env,
+  }
 }
