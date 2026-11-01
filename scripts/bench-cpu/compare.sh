@@ -9,7 +9,7 @@ while IFS= read -r route; do
   [[ -z $route ]] && continue
   slug=$(echo $route | cut -d' ' -f2 | tr -c 'a-zA-Z0-9\n' '_' | cut -c1-40)
   for run in $(seq 1 $runs); do
-    for app in airealty airealty-perf; do
+    for app in ${=APPS:-airealty airealty-perf}; do
       APP=$B/$app $S/cold.sh "$app-r$run" "$B/out/$tag/$app/$slug" $series "$route" |
         python3 -c '
 import json,sys; d=json.load(sys.stdin)

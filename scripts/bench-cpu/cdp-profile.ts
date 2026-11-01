@@ -214,3 +214,6 @@ if (args.out) {
     JSON.stringify(summary, null, 2),
   )
 }
+
+// Open keep-alive sockets and the inspector socket would hold the process.
+process.exit(0)
