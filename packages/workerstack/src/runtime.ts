@@ -746,50 +746,56 @@ export async function materializeWorkerstack<
         })
       : undefined
 
-    const openapiHandler = new OpenAPIHandler(nativeRouter, {
-      // Query strings and form bodies are strings; this coerces them to the
-      // types each procedure's input schema declares, so schemas stay honest
-      // (`v.number()`, not a string-union pipe) and REST matches RPC.
-      plugins: [
-        new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
-      ],
-      customErrorResponseBodyEncoder: (error: any) => {
-        // oRPC v2 errors have no `status`; derive it from the code, as the
-        // handler does, so only real 5xx responses get this label.
-        if (httpStatusOf(error) >= 500) {
-          logger.error(
-            '[workerstack-api] 500 Internal Server Error:',
-            error?.cause ?? error,
-          )
-        }
-        return {
-          error: error.message,
-          code: error.data?.code ?? error.code,
-          // oRPC reports schema failures as `data.issues`; forwarding them tells
-          // the client which field was rejected instead of just "invalid".
-          ...(error.data?.details !== undefined
-            ? { details: error.data.details }
-            : error.data?.issues !== undefined
-              ? { details: error.data.issues }
-              : {}),
-        }
-      },
-      interceptors: [
-        async (options) => {
-          const res = await options.next()
-          if (options.context.resHeaders) {
-            options.context.resHeaders.forEach(
-              (v: string, k: string) => (res.headers[k] = v),
+    // Each handler indexes every procedure when it is constructed. A Worker
+    // isolate often serves one kind of request, so build each on first use.
+    let openapiHandlerInstance: OpenAPIHandler<any> | undefined
+    const openapiHandler = () =>
+      (openapiHandlerInstance ??= new OpenAPIHandler(nativeRouter, {
+        // Query strings and form bodies are strings; this coerces them to the
+        // types each procedure's input schema declares, so schemas stay honest
+        // (`v.number()`, not a string-union pipe) and REST matches RPC.
+        plugins: [
+          new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
+        ],
+        customErrorResponseBodyEncoder: (error: any) => {
+          // oRPC v2 errors have no `status`; derive it from the code, as the
+          // handler does, so only real 5xx responses get this label.
+          if (httpStatusOf(error) >= 500) {
+            logger.error(
+              '[workerstack-api] 500 Internal Server Error:',
+              error?.cause ?? error,
             )
           }
-          return res
+          return {
+            error: error.message,
+            code: error.data?.code ?? error.code,
+            // oRPC reports schema failures as `data.issues`; forwarding them tells
+            // the client which field was rejected instead of just "invalid".
+            ...(error.data?.details !== undefined
+              ? { details: error.data.details }
+              : error.data?.issues !== undefined
+                ? { details: error.data.issues }
+                : {}),
+          }
         },
-      ],
-    })
+        interceptors: [
+          async (options) => {
+            const res = await options.next()
+            if (options.context.resHeaders) {
+              options.context.resHeaders.forEach(
+                (v: string, k: string) => (res.headers[k] = v),
+              )
+            }
+            return res
+          },
+        ],
+      }))
     // No custom error encoding here: the RPC protocol owns its error body, and
     // `mapWorkerstackErrors` already logs unhandled procedure errors for every
     // transport before rethrowing them.
-    const rpcHandler = new RPCHandler(nativeRouter)
+    let rpcHandlerInstance: RPCHandler<any> | undefined
+    const rpcHandler = () =>
+      (rpcHandlerInstance ??= new RPCHandler(nativeRouter))
 
     const apiHandler = async (req: Request): Promise<Response | null> => {
       const urlString = typeof req === 'string' ? (req as string) : req.url
@@ -821,14 +827,16 @@ export async function materializeWorkerstack<
       )
 
       if (url.pathname.startsWith('/api/rpc')) {
-        const res = await rpcHandler.handle(req, {
+        const res = await rpcHandler().handle(req, {
           prefix: '/api/rpc',
           context: apiCtx,
         })
         if (res.matched) return res.response
       }
 
-      const openapiRes = await openapiHandler.handle(req, { context: apiCtx })
+      const openapiRes = await openapiHandler().handle(req, {
+        context: apiCtx,
+      })
       if (openapiRes.matched) return openapiRes.response
 
       return null
