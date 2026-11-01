@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.3
+
+- A Worker isolate starts cheaper, and on a quiet app almost every request
+  lands in a fresh one. For airealty.global the first request of an isolate
+  costs half as much CPU on API routes (`/api/health` 30 → 14 ms, an RPC
+  call 35 → 18 ms) and 19–36% less on SSR and proxied paths. Better Auth,
+  your auth builder included, is built on the first auth request or session
+  lookup, not at start (Workers only; other hosts and apps with `openapi`
+  are unchanged). The hosting manifest is no longer built at start, and the
+  oRPC matchers are built on first use.
+- A new isolate no longer wakes the Scheduler. Each one pulled the alarm to
+  now and set off a one-second retry: two alarms per isolate, about 8.7k a day
+  on airealty.global. The start-up notify now only re-arms an alarm chain that
+  has no alarm.
+- With Bunderhost telemetry configured, `createStartWorker` times SSR without
+  starting the app.
+- `worker.app(env)` on `createWorker` and `createStartWorker` returns the
+  isolate's started app (and registers the env), for SSR entries that used
+  an internal request to get it.
+
 ## 0.2.2
 
 - An error report carries the errors it wraps. Drizzle reports a failed query
