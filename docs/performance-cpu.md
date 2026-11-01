@@ -21,8 +21,10 @@ about 104k on Scheduler alarms (8.7k alarms a day, about 12 ms each).
   `startScheduler` sent the same `/notify` as an enqueue. That pulled the alarm
   to *now*, and the alarm that found nothing scheduled a one-second retry:
   **2 alarms per fresh isolate**, measured. That matches production's alarm
-  count (8.7k/day) being close to its fetch count (9.4k/day). No job comes due
-  every 10 s; the app's crons are hourly and daily.
+  count (8.7k/day) being close to its fetch count (9.4k/day). Production
+  Observability shows about 4.9k Scheduler `fetch` events in 24 h: one notify
+  per new isolate, about two alarms each. No job comes due every 10 s; the
+  app's crons are hourly and daily.
 - In a cold isolate, the framework's part of the first request was about
   **20–25 ms** of the 30–35 ms fetch-only total for an API route: building
   the hosting manifest (7 ms, unused at runtime), constructing Better Auth
