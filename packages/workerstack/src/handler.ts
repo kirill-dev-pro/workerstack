@@ -4,7 +4,8 @@ import type { RateLimitStore } from './platform'
 import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
-  authHandler?: (req: Request) => Promise<Response>
+  /** Answers `/api/auth/*`; null hands the request to the API routes. */
+  authHandler?: (req: Request) => Promise<Response | null>
   apiHandler?: (req: Request) => Promise<Response | null>
   rateLimit?: boolean | RateLimitConfig
   rateLimitStore?: RateLimitStore
@@ -27,7 +28,8 @@ export function buildHandler(
       parts.authHandler &&
       (pathname === '/api/auth' || pathname.startsWith('/api/auth/'))
     ) {
-      return parts.authHandler(req)
+      const authRes = await parts.authHandler(req)
+      if (authRes) return authRes
     }
     if (parts.apiHandler) {
       const apiRes = await parts.apiHandler(req)

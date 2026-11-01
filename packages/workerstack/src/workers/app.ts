@@ -97,6 +97,8 @@ export function appFor(
   const started = backend.start({
     env: envStrings(env),
     platform: { ...workerPlatform(env), ...platform },
+    // Most requests to a Worker never resolve a session.
+    deferAuth: true,
   }) as Promise<WorkerApp>
   byRole.set(role, started)
   // A failed start must not poison the isolate: the next request retries.

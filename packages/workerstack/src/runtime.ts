@@ -117,6 +117,12 @@ export type RuntimeOverrides = {
   logger?: WorkerstackLogger
   /** Host services; see src/platform.ts. */
   platform?: Partial<Platform>
+  /**
+   * Build Better Auth (the app's auth builder included) on first use instead
+   * of at start. A Worker isolate then serves public requests without it; a
+   * misconfigured auth fails the first auth request instead of the start.
+   */
+  deferAuth?: boolean
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
@@ -385,52 +391,76 @@ export async function materializeWorkerstack<
     // generic schema view, so this single intentional cast produces the
     // user-facing db type. See `app.db` / crud below.
     const userDb = db as unknown as DbFor<TSchema>
-    // An `auth` builder gets the user-facing db, so better-auth hooks in another
-    // file can write through the app's own connection without importing the app.
-    const authConfig = withManagedIdentity(
-      resolveAuthConfig(config.auth, { db: userDb, env }),
-      env,
-      options.schema as Record<string, unknown>,
-    )
     const authEmail =
       options.messaging?.email?.kind === 'email'
         ? ((messaging as Record<string, unknown>).email as EmailFacade)
         : undefined
-    const buildAuth = () =>
-      createAuth<TAuthConfig>(
-        db,
-        withEmailAuthDefaults(
-          withPasswordDefaults(authConfig),
-          authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
-          Boolean(authEmail),
-        ),
+    const setupAuth = () => {
+      // An `auth` builder gets the user-facing db, so better-auth hooks in
+      // another file can write through the app's own connection without
+      // importing the app.
+      const authConfig = withManagedIdentity(
+        resolveAuthConfig(config.auth, { db: userDb, env }),
+        env,
         options.schema as Record<string, unknown>,
       )
-    // Internal routers consume the narrow AuthSessionResolver contract, not the
-    // raw better-auth instance. app.auth still exposes `auth` unchanged. An app
-    // whose schema declares no better-auth models runs no better-auth at all: no
-    // resolver (every session is null), no `/api/auth` routes, no auth OpenAPI,
-    // and the instance behind `app.auth` is only built if something touches it.
-    const missingModels = missingAuthModels(
-      options.schema as Record<string, unknown>,
-      authConfig,
-    )
-    const authEnabled = missingModels.length === 0
-    if (!authEnabled && options.auth !== undefined) {
-      logger.warn(
-        `[workerstack] auth is configured, but the schema is ` +
-          `missing better-auth tables: ${missingModels
-            .map((model) => `\`${model}\``)
-            .join(', ')}. Every session resolves to null and /api/auth is ` +
-          `not served until they are part of the schema.`,
+      const buildAuth = () =>
+        createAuth<TAuthConfig>(
+          db,
+          withEmailAuthDefaults(
+            withPasswordDefaults(authConfig),
+            authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
+            Boolean(authEmail),
+          ),
+          options.schema as Record<string, unknown>,
+        )
+      // Internal routers consume the narrow AuthSessionResolver contract, not
+      // the raw better-auth instance. app.auth still exposes `auth` unchanged.
+      // An app whose schema declares no better-auth models runs no
+      // better-auth at all: no resolver (every session is null), no
+      // `/api/auth` routes, no auth OpenAPI, and the instance behind
+      // `app.auth` is only built if something touches it.
+      const missingModels = missingAuthModels(
+        options.schema as Record<string, unknown>,
+        authConfig,
       )
+      const enabled = missingModels.length === 0
+      if (!enabled && options.auth !== undefined) {
+        logger.warn(
+          `[workerstack] auth is configured, but the schema is ` +
+            `missing better-auth tables: ${missingModels
+              .map((model) => `\`${model}\``)
+              .join(', ')}. Every session resolves to null and /api/auth is ` +
+            `not served until they are part of the schema.`,
+        )
+      }
+      const instance = enabled ? buildAuth() : lazyAuth(buildAuth)
+      return {
+        enabled,
+        auth: instance,
+        resolver: enabled
+          ? toAuthSessionResolver(instance as unknown as Auth, options.session)
+          : undefined,
+      }
     }
-    const auth = authEnabled ? buildAuth() : lazyAuth(buildAuth)
-    const declaredAuthResolver =
+    // The OpenAPI document includes better-auth's routes, so it needs auth now.
+    const deferAuth = overrides.deferAuth === true && !options.openapi
+    let authSetup = deferAuth ? undefined : setupAuth()
+    const getAuthSetup = () => (authSetup ??= setupAuth())
+    const auth = deferAuth
+      ? lazyAuth(() => getAuthSetup().auth)
+      : authSetup!.auth
+    const declaredAuthResolver: AuthSessionResolver | undefined =
       options.authResolver ??
-      (authEnabled
-        ? toAuthSessionResolver(auth as unknown as Auth, options.session)
-        : undefined)
+      (deferAuth
+        ? {
+            api: {
+              getSession: ({ headers }: { headers: Headers }) =>
+                getAuthSetup().resolver?.api.getSession({ headers }) ??
+                Promise.resolve(null),
+            },
+          }
+        : authSetup!.resolver)
     const authResolver = overrides.authResolver
       ? {
           api: {
@@ -658,7 +688,7 @@ export async function materializeWorkerstack<
 
     const authOpenAPISpecRaw =
       options.openapi &&
-      authEnabled &&
+      authSetup?.enabled &&
       auth.api &&
       'generateOpenAPISchema' in auth.api &&
       typeof auth.api.generateOpenAPISchema === 'function'
@@ -805,7 +835,15 @@ export async function materializeWorkerstack<
     }
 
     const handler = buildHandler({
-      authHandler: authEnabled ? (req) => auth.handler(req) : undefined,
+      // Without auth models `/api/auth` is an ordinary API path.
+      authHandler: deferAuth
+        ? async (req) => {
+            const setup = getAuthSetup()
+            return setup.enabled ? setup.auth.handler(req) : null
+          }
+        : authSetup!.enabled
+          ? (req) => auth.handler(req)
+          : undefined,
       apiHandler,
       rateLimit: options.rateLimit,
       rateLimitStore: platform.rateLimit,

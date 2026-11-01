@@ -29,6 +29,11 @@ export type StartOptions = {
   env?: Record<string, string | undefined>
   /** Host services. Missing ones use in-memory defaults. */
   platform?: Partial<Platform>
+  /**
+   * Build Better Auth on first use, not at start. The Workers entry sets it:
+   * an isolate that only serves public requests never builds auth.
+   */
+  deferAuth?: boolean
 }
 
 export type WorkerstackBackend<TApp> = {
@@ -265,9 +270,10 @@ export function workerstack(
     inspect: ({ env } = {}) =>
       inspect(env ?? (process.env as Record<string, string | undefined>))
         .manifest,
-    start: async ({ env, platform } = {}) =>
+    start: async ({ env, platform, deferAuth } = {}) =>
       await start(env ?? (process.env as Record<string, string | undefined>), {
         platform,
+        ...(deferAuth ? { deferAuth } : {}),
       }),
     test,
     [BACKEND_INTERNALS]: {
