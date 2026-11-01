@@ -9,7 +9,7 @@ import { RealtimeHub } from './realtime-hub'
 import { registerWorker, rememberWorkerEnv } from './registry'
 import { createSchedulerClass } from './scheduler'
 
-export function createWorker(backend: WorkerstackBackend<any>) {
+export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
   // Without Cron Triggers nothing else starts the alarm chain; after the
   // first alarm the Scheduler follows app.jobs.nextDueAt on its own. Each new
   // isolate only checks that the chain is armed: on a quiet app nearly every
@@ -59,6 +59,20 @@ export function createWorker(backend: WorkerstackBackend<any>) {
   return {
     handler,
     startScheduler,
+    /**
+     * The app this isolate serves requests with, started on first call. For
+     * entry code that needs it outside an `/api` request (an SSR wrapper that
+     * hands `db` to loaders) without a request through the API stack.
+     */
+    app: (env: WorkerEnv): Promise<TApp> => {
+      // Server code in this request may call the API through the Worker.
+      rememberWorkerEnv(env)
+      return appFor(
+        backend as WorkerstackBackend<any>,
+        env,
+        'fetch',
+      ) as Promise<TApp>
+    },
     durableObjects: {
       Scheduler: createSchedulerClass(backend),
       RealtimeHub,

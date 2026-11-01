@@ -37,8 +37,8 @@ export function normalizePath(url: string): string {
 
 type StartHandler = (request: Request) => Promise<Response>
 
-export function createStartWorker(
-  backend: WorkerstackBackend<any>,
+export function createStartWorker<TApp = any>(
+  backend: WorkerstackBackend<TApp>,
   startHandler?: StartHandler,
 ) {
   const worker = createWorker(backend)
@@ -86,7 +86,7 @@ export function createStartWorker(
     },
     scheduled: worker.handler.scheduled,
   }
-  return { handler, durableObjects: worker.durableObjects }
+  return { handler, app: worker.app, durableObjects: worker.durableObjects }
 }
 
 async function defaultStartHandler(): Promise<StartHandler> {

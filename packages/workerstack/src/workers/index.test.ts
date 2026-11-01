@@ -7,6 +7,7 @@ import { libsql } from '../database/libsql'
 import { workerstack } from '../index'
 import { createFakeNamespace } from '../testing/workers-fakes'
 import { createWorker } from './index'
+import { registeredWorker, resetRegistryForTests } from './registry'
 
 const notes = sqliteTable('notes', { id: text('id').primaryKey() })
 const ctx = () => {
@@ -105,4 +106,20 @@ test('the first request starts the Scheduler once per isolate', async () => {
   }
   expect(notifies).toBe(1)
   expect(SCHEDULER.state('main').alarmAt()).not.toBeNull()
+})
+
+test('app(env) is the app the fetch handler serves with', async () => {
+  resetRegistryForTests()
+  const worker = createWorker(backendWithJobs())
+  const env = { DATABASE_URL: ':memory:' }
+  const app = await worker.app(env)
+  expect(registeredWorker()?.env).toBe(env)
+  expect(typeof app.db.select).toBe('function')
+  expect(await worker.app(env)).toBe(app)
+  const health = await worker.handler.fetch(
+    new Request('https://app.test/api/health'),
+    env,
+    ctx(),
+  )
+  expect(health.status).toBe(200)
 })
