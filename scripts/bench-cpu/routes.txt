@@ -1,0 +1,8 @@
+GET /api/health
+GET /api/auth/get-session
+POST /api/rpc/agents/recordVisit {"json":{"agentId":"agt_1","visitorId":"bench","pathname":"/x","deviceType":"desktop"}}
+GET /api/rpc/agents/getBySlug?data=%7B%22json%22%3A%7B%22slug%22%3A%22bench-agent-1-porto%22%7D%7D
+GET /api/posthog/static/surveys.js
+GET /assets/styles-stale.css
+GET /
+GET /agents
