@@ -123,3 +123,44 @@ test('app(env) is the app the fetch handler serves with', async () => {
   )
   expect(health.status).toBe(200)
 })
+
+test("an SSR loader's API call flushes telemetry through the page request", async () => {
+  resetRegistryForTests()
+  const { createStartWorker } = await import('../start/create-start-worker')
+  const { createIsomorphicFetch } = await import('../start/isomorphic-fetch')
+  const iso = createIsomorphicFetch({
+    isolate: { request: async () => new Request('https://app.test/boards') },
+  })
+  const worker = createStartWorker(backendWithJobs(), async () => {
+    // A loader reading through the API in the isolate.
+    await iso('/api/health')
+    return new Response('page')
+  })
+  const sent: string[] = []
+  const realFetch = globalThis.fetch
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    sent.push(String(input))
+    return new Response(null, { status: 204 })
+  }) as typeof fetch
+  try {
+    const page = ctx()
+    const response = await worker.handler.fetch(
+      new Request('https://app.test/boards'),
+      {
+        DATABASE_URL: ':memory:',
+        BUNDERHOST_TELEMETRY_URL: 'https://telemetry.test',
+        BUNDERHOST_TELEMETRY_TOKEN: 'token',
+      },
+      page,
+    )
+    expect(await response.text()).toBe('page')
+    // The page's own flush and the loader's API call both landed here.
+    expect(page.pending.length).toBeGreaterThanOrEqual(2)
+    await Promise.all(page.pending)
+    expect(sent.every((url) => url === 'https://telemetry.test/events')).toBe(
+      true,
+    )
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})

@@ -4,6 +4,7 @@ import type { WorkerstackBackend } from '../backend'
 import type { ExecutionContextLike, WorkerEnv } from '../workers/types'
 
 import { workerTelemetry } from '../workers/app'
+import { withWorkerContext } from '../workers/context'
 import { createWorker } from '../workers/index'
 import { rememberWorkerEnv } from '../workers/registry'
 
@@ -43,50 +44,63 @@ export function createStartWorker<TApp = any>(
 ) {
   const worker = createWorker(backend)
   let start = startHandler
+  const serve = async (
+    request: Request,
+    env: WorkerEnv,
+    ctx: ExecutionContextLike,
+  ): Promise<Response> => {
+    // SSR code in this request calls the API through the registered Worker.
+    rememberWorkerEnv(env)
+    worker.startScheduler(env, ctx)
+    if (new URL(request.url).pathname.startsWith('/api/')) {
+      return worker.handler.fetch(request, env, ctx)
+    }
+    start ??= await defaultStartHandler()
+    // A render never starts the app on its own: it is timed through the
+    // isolate's reporter, which the app shares once something starts it.
+    const telemetry = workerTelemetry(env)
+    if (!telemetry) return start(request)
+    // SSR is timed per normalized path and a thrown render is an error.
+    const startedAt = performance.now()
+    let status = 200
+    try {
+      const response = await start(request)
+      status = response.status
+      return response
+    } catch (error) {
+      status = 500
+      telemetry.captureException(error, {
+        source: 'http',
+        method: request.method,
+        path: new URL(request.url).pathname,
+      })
+      throw error
+    } finally {
+      telemetry.recordRequest({
+        route: `ssr ${normalizePath(request.url)}`,
+        status,
+        durationMs: performance.now() - startedAt,
+      })
+      ctx.waitUntil(telemetry.flushIfDue())
+    }
+  }
   const handler = {
-    async fetch(
+    fetch(
       request: Request,
       env: WorkerEnv,
       ctx: ExecutionContextLike,
     ): Promise<Response> {
-      // SSR code in this request calls the API through the registered Worker.
-      rememberWorkerEnv(env)
-      worker.startScheduler(env, ctx)
-      if (new URL(request.url).pathname.startsWith('/api/')) {
-        return worker.handler.fetch(request, env, ctx)
-      }
-      start ??= await defaultStartHandler()
-      // A render never starts the app on its own: it is timed through the
-      // isolate's reporter, which the app shares once something starts it.
-      const telemetry = workerTelemetry(env)
-      if (!telemetry) return start(request)
-      // SSR is timed per normalized path and a thrown render is an error.
-      const startedAt = performance.now()
-      let status = 200
-      try {
-        const response = await start(request)
-        status = response.status
-        return response
-      } catch (error) {
-        status = 500
-        telemetry.captureException(error, {
-          source: 'http',
-          method: request.method,
-          path: new URL(request.url).pathname,
-        })
-        throw error
-      } finally {
-        telemetry.recordRequest({
-          route: `ssr ${normalizePath(request.url)}`,
-          status,
-          durationMs: performance.now() - startedAt,
-        })
-        ctx.waitUntil(telemetry.flushIfDue())
-      }
+      // Loaders that call the API in the isolate run inside this request.
+      return withWorkerContext(ctx, () => serve(request, env, ctx))
     },
     scheduled: worker.handler.scheduled,
   }
-  return { handler, app: worker.app, durableObjects: worker.durableObjects }
+  return {
+    handler,
+    app: worker.app,
+    withContext: worker.withContext,
+    durableObjects: worker.durableObjects,
+  }
 }
 
 async function defaultStartHandler(): Promise<StartHandler> {

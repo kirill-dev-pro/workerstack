@@ -4,6 +4,7 @@ import type { WorkerstackBackend } from '../backend'
 import type { ExecutionContextLike, WorkerEnv } from './types'
 
 import { appFor, notifyScheduler } from './app'
+import { currentWorkerContext, withWorkerContext } from './context'
 import { RateLimiter } from './rate-limiter'
 import { RealtimeHub } from './realtime-hub'
 import { registerWorker, rememberWorkerEnv } from './registry'
@@ -26,24 +27,26 @@ export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
     )
   }
   const handler = {
-    async fetch(
+    fetch(
       request: Request,
       env: WorkerEnv,
       ctx: ExecutionContextLike,
     ): Promise<Response> {
-      rememberWorkerEnv(env)
-      startScheduler(env, ctx)
-      const app = await appFor(backend, env, 'fetch')
-      try {
-        const response = await app.handler(request)
-        // A path that reached the Worker but has no route: let the SPA answer.
-        if (response.status === 404 && env.ASSETS)
-          return env.ASSETS.fetch(request)
-        return response
-      } finally {
-        // Deltas leave the isolate between requests, never on a timer.
-        if (app.telemetry.enabled) ctx.waitUntil(app.telemetry.flushIfDue())
-      }
+      return withWorkerContext(ctx, async () => {
+        rememberWorkerEnv(env)
+        startScheduler(env, ctx)
+        const app = await appFor(backend, env, 'fetch')
+        try {
+          const response = await app.handler(request)
+          // A path that reached the Worker but has no route: let the SPA answer.
+          if (response.status === 404 && env.ASSETS)
+            return env.ASSETS.fetch(request)
+          return response
+        } finally {
+          // Deltas leave the isolate between requests, never on a timer.
+          if (app.telemetry.enabled) ctx.waitUntil(app.telemetry.flushIfDue())
+        }
+      })
     },
     async scheduled(
       _controller: unknown,
@@ -55,7 +58,7 @@ export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
     },
   }
   // Start server code in this isolate calls the API through it.
-  registerWorker(handler)
+  registerWorker({ fetch: handler.fetch, context: currentWorkerContext })
   return {
     handler,
     startScheduler,
@@ -64,6 +67,11 @@ export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
      * entry code that needs it outside an `/api` request (an SSR wrapper that
      * hands `db` to loaders) without a request through the API stack.
      */
+    /**
+     * Run a custom entry's request with its ExecutionContext, so API calls
+     * made in the isolate (SSR loaders) keep their background work alive.
+     */
+    withContext: withWorkerContext,
     app: (env: WorkerEnv): Promise<TApp> => {
       // Server code in this request may call the API through the Worker.
       rememberWorkerEnv(env)

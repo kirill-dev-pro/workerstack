@@ -2,6 +2,18 @@ import { registeredWorker } from '../workers/registry'
 
 type IsolateContext = { request: () => Promise<Request> }
 
+/** Longest a context-less in-isolate call waits for its background work. */
+export const PENDING_WAIT_MS = 2_000
+
+async function settleWithin(promises: Promise<unknown>[], ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  await Promise.race([
+    Promise.allSettled(promises),
+    new Promise<void>((resolve) => (timer = setTimeout(resolve, ms))),
+  ])
+  clearTimeout(timer)
+}
+
 /**
  * SSR-aware fetch: the browser passes `/api/...` through as-is. On the server,
  * when this isolate runs the workerstack Worker (a package Worker entry
@@ -38,11 +50,20 @@ export function createIsomorphicFetch(
       const cookie = incoming.headers.get('cookie')
       if (cookie && !headers.has('cookie')) headers.set('cookie', cookie)
       const url = new URL(input, new URL(incoming.url).origin)
-      return registered.worker.fetch(
-        new Request(url, { ...init, headers }),
-        registered.env,
-        { waitUntil() {} },
-      )
+      const request = new Request(url, { ...init, headers })
+      // The API handler's background work (a Scheduler notify, a telemetry
+      // flush) must outlive this call: hand it the page request's context.
+      const ctx = registered.worker.context?.()
+      if (ctx) return registered.worker.fetch(request, registered.env, ctx)
+      // A custom entry that did not run the request through the Worker (or
+      // `worker.withContext`): wait for that work rather than let the end of
+      // the page response cancel it.
+      const pending: Promise<unknown>[] = []
+      const response = await registered.worker.fetch(request, registered.env, {
+        waitUntil: (promise) => void pending.push(promise),
+      })
+      if (pending.length) await settleWithin(pending, PENDING_WAIT_MS)
+      return response
     }
     if (typeof input === 'string' && input.startsWith('/')) {
       let origin = process.env.APP_URL

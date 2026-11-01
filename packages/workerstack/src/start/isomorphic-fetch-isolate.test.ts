@@ -57,3 +57,46 @@ test('without a registered Worker the server path keeps using the network', asyn
     else process.env.APP_URL = previous
   }
 })
+
+const isolateRequest = {
+  request: async () => new Request('https://app.example/boards'),
+}
+
+test("an in-isolate call hands the API the page request's context", async () => {
+  const outer: Promise<unknown>[] = []
+  const pageCtx = { waitUntil: (p: Promise<unknown>) => void outer.push(p) }
+  let seenCtx: unknown
+  registerWorker({
+    async fetch(_request, _env, ctx) {
+      seenCtx = ctx
+      ctx.waitUntil(Promise.resolve('flushed'))
+      return new Response('in-isolate')
+    },
+    context: () => pageCtx,
+  })
+  rememberWorkerEnv({})
+  const iso = createIsomorphicFetch({ isolate: isolateRequest })
+  expect(await (await iso('/api/notes')).text()).toBe('in-isolate')
+  expect(seenCtx).toBe(pageCtx)
+  expect(await Promise.all(outer)).toEqual(['flushed'])
+})
+
+test('without a page context the call waits for the API background work', async () => {
+  const order: string[] = []
+  registerWorker({
+    async fetch(_request, _env, ctx) {
+      ctx.waitUntil(
+        new Promise((resolve) => setTimeout(resolve, 20)).then(() =>
+          order.push('background'),
+        ),
+      )
+      return new Response('in-isolate')
+    },
+  })
+  rememberWorkerEnv({})
+  const iso = createIsomorphicFetch({ isolate: isolateRequest })
+  const res = await iso('/api/notes')
+  order.push('response')
+  expect(await res.text()).toBe('in-isolate')
+  expect(order).toEqual(['background', 'response'])
+})

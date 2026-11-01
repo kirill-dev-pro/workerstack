@@ -10,6 +10,8 @@ export type RegisteredWorker = {
     env: WorkerEnv,
     ctx: ExecutionContextLike,
   ): Promise<Response>
+  /** The ExecutionContext of the request the isolate is serving, if known. */
+  context?(): ExecutionContextLike | undefined
 }
 
 let current: RegisteredWorker | undefined
