@@ -11,13 +11,16 @@ import { createSchedulerClass } from './scheduler'
 
 export function createWorker(backend: WorkerstackBackend<any>) {
   // Without Cron Triggers nothing else starts the alarm chain; after the
-  // first alarm the Scheduler follows app.jobs.nextDueAt on its own.
+  // first alarm the Scheduler follows app.jobs.nextDueAt on its own. Each new
+  // isolate only checks that the chain is armed: on a quiet app nearly every
+  // request lands in a fresh isolate, and pulling the alarm to now from each
+  // of them ran an alarm (and its retry) per request.
   let schedulerStarted = false
   const startScheduler = (env: WorkerEnv, ctx: ExecutionContextLike) => {
     if (schedulerStarted || !env.SCHEDULER) return
     schedulerStarted = true
     ctx.waitUntil(
-      notifyScheduler(env.SCHEDULER, Date.now()).catch(() => {
+      notifyScheduler(env.SCHEDULER, Date.now(), { ensure: true }).catch(() => {
         schedulerStarted = false
       }),
     )

@@ -189,3 +189,35 @@ test('a delayed job comes due while another runs and starts on time', async () =
     await s.cleanup()
   }
 })
+
+const ensure = (runAt: number) =>
+  new Request('https://scheduler/notify', {
+    method: 'POST',
+    body: JSON.stringify({ runAt, ensure: true }),
+  })
+
+test('an ensure notify leaves an armed alarm where it is', async () => {
+  const s = await setup()
+  try {
+    const now = Date.now()
+    await s.scheduler().fetch(notify(now + 60_000))
+    await s.scheduler().fetch(ensure(now))
+    expect(s.alarmAt()).toBe(now + 60_000)
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('an ensure notify arms a dead chain without a retry alarm', async () => {
+  const s = await setup()
+  try {
+    const now = Date.now()
+    await s.scheduler().fetch(ensure(now))
+    expect(s.alarmAt()).toBe(now)
+    await s.fire()
+    // Nothing due and no enqueue to wait for: straight to the next cron or cap.
+    expect(s.alarmAt()).toBeGreaterThan(Date.now() + 3_500_000)
+  } finally {
+    await s.cleanup()
+  }
+})

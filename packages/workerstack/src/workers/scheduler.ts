@@ -1,6 +1,7 @@
 // src/workers/scheduler.ts — the only place background work runs in a Worker.
 // One instance per app ('main'). Its alarm chain follows app.jobs.nextDueAt;
-// enqueues and Cron Triggers pull the alarm earlier through /notify.
+// enqueues and Cron Triggers pull the alarm earlier through /notify; a new
+// isolate only re-arms a chain that has no alarm (`ensure`).
 //
 // An alarm starts handlers and keeps claiming while they run: work enqueued
 // or coming due meanwhile starts at once instead of waiting for the slowest
@@ -74,7 +75,17 @@ export function createSchedulerClass(
       if (url.pathname !== '/notify' || request.method !== 'POST') {
         return new Response('Not found', { status: 404 })
       }
-      const { runAt } = (await request.json()) as { runAt: number }
+      const { runAt, ensure } = (await request.json()) as {
+        runAt: number
+        ensure?: boolean
+      }
+      if (ensure) {
+        // Revive a chain that is not armed. A running alarm has cleared its
+        // own; it drops this one as stale when it reschedules.
+        if ((await this.state.storage.getAlarm()) === null)
+          await this.state.storage.setAlarm(runAt)
+        return new Response(null, { status: 204 })
+      }
       this.notified = true
       this.retried = false
       await this.schedule(runAt)

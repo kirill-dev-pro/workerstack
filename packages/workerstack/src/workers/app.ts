@@ -36,13 +36,19 @@ export type WorkerApp = {
   }
 }
 
+/**
+ * Wake the Scheduler at `runAt` (or earlier work). With `ensure`, only revive
+ * an alarm chain that is not armed at all: a fresh isolate checking that the
+ * chain runs must not pull the alarm forward, nor start a retry alarm.
+ */
 export async function notifyScheduler(
   namespace: DurableObjectNamespaceLike,
   runAt: number,
+  options: { ensure?: boolean } = {},
 ): Promise<void> {
   const res = await stub(namespace, 'main').fetch('https://scheduler/notify', {
     method: 'POST',
-    body: JSON.stringify({ runAt }),
+    body: JSON.stringify(options.ensure ? { runAt, ensure: true } : { runAt }),
   })
   if (!res.ok) {
     throw new Error(`[workerstack] scheduler notify failed (${res.status})`)
