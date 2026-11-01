@@ -3,6 +3,7 @@
 import type { RealtimePublisher } from './realtime/publisher'
 import type { ResolvedBackend, ResolvedBucket } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
+import type { Telemetry } from './telemetry/telemetry'
 
 import { createAdapter } from './storage/registry'
 
@@ -33,6 +34,12 @@ export interface Platform {
   realtime?: RealtimePublisher
   rateLimit: RateLimitStore
   storage: StorageAdapterFactory
+  /**
+   * A reporter the host already holds for this process. Used instead of a new
+   * one when the platform's telemetry variables are set, so the host's own
+   * samples (a Worker's SSR timings) and the app's leave in the same batches.
+   */
+  telemetry?: Telemetry
 }
 
 export function createMemoryRateLimitStore(): RateLimitStore {
@@ -56,5 +63,6 @@ export function resolvePlatform(partial: Partial<Platform> = {}): Platform {
     realtime: partial.realtime,
     rateLimit: partial.rateLimit ?? createMemoryRateLimitStore(),
     storage: partial.storage ?? createAdapter,
+    telemetry: partial.telemetry,
   }
 }

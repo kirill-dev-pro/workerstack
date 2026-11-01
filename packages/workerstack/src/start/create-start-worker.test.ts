@@ -67,3 +67,47 @@ test('a rendered page starts the Scheduler too', async () => {
   await Promise.all(pending)
   expect(notified).toHaveLength(1)
 })
+
+test('a timed render does not start the app', async () => {
+  resetRegistryForTests()
+  let connects = 0
+  const backend = workerstack({
+    schema: {},
+    database: {
+      adapter: {
+        driver: 'libsql',
+        async connect() {
+          connects++
+          throw new Error('not used')
+        },
+        async migrate() {},
+      },
+    } as never,
+  })
+  const worker = createStartWorker(backend, async () => new Response('ssr'))
+  const sent: string[] = []
+  const realFetch = globalThis.fetch
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    sent.push(`${String(input)} ${String(init?.body)}`)
+    return new Response(null, { status: 204 })
+  }) as typeof fetch
+  try {
+    const pending: Promise<unknown>[] = []
+    const page = await worker.handler.fetch(
+      new Request('https://app.example/boards/42'),
+      {
+        BUNDERHOST_TELEMETRY_URL: 'https://telemetry.example',
+        BUNDERHOST_TELEMETRY_TOKEN: 'token',
+      },
+      { waitUntil: (p) => void pending.push(p) },
+    )
+    await Promise.all(pending)
+    expect(await page.text()).toBe('ssr')
+    expect(connects).toBe(0)
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toStartWith('https://telemetry.example/events ')
+    expect(sent[0]).toContain('ssr /boards/:id')
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})

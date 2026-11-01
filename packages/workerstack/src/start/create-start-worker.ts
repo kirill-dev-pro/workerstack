@@ -3,7 +3,7 @@
 import type { WorkerstackBackend } from '../backend'
 import type { ExecutionContextLike, WorkerEnv } from '../workers/types'
 
-import { appFor } from '../workers/app'
+import { workerTelemetry } from '../workers/app'
 import { createWorker } from '../workers/index'
 import { rememberWorkerEnv } from '../workers/registry'
 
@@ -56,12 +56,10 @@ export function createStartWorker(
         return worker.handler.fetch(request, env, ctx)
       }
       start ??= await defaultStartHandler()
-      // Without the platform's variables a render never starts the app: the
-      // SSR path must stay as cheap as it was.
-      if (!env.BUNDERHOST_TELEMETRY_URL || !env.BUNDERHOST_TELEMETRY_TOKEN)
-        return start(request)
-      const app = await appFor(backend, env, 'fetch')
-      if (!app.telemetry.enabled) return start(request)
+      // A render never starts the app on its own: it is timed through the
+      // isolate's reporter, which the app shares once something starts it.
+      const telemetry = workerTelemetry(env)
+      if (!telemetry) return start(request)
       // SSR is timed per normalized path and a thrown render is an error.
       const startedAt = performance.now()
       let status = 200
@@ -71,19 +69,19 @@ export function createStartWorker(
         return response
       } catch (error) {
         status = 500
-        app.telemetry.captureException(error, {
+        telemetry.captureException(error, {
           source: 'http',
           method: request.method,
           path: new URL(request.url).pathname,
         })
         throw error
       } finally {
-        app.telemetry.recordRequest({
+        telemetry.recordRequest({
           route: `ssr ${normalizePath(request.url)}`,
           status,
           durationMs: performance.now() - startedAt,
         })
-        ctx.waitUntil(app.telemetry.flushIfDue())
+        ctx.waitUntil(telemetry.flushIfDue())
       }
     },
     scheduled: worker.handler.scheduled,

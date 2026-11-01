@@ -5,6 +5,12 @@ import type { PumpOptions, PumpResult } from '../jobs/index'
 import type { Platform } from '../platform'
 import type { DurableObjectNamespaceLike, WorkerEnv } from './types'
 
+import {
+  createTelemetry,
+  type Telemetry,
+  telemetryFromEnv,
+} from '../telemetry/telemetry'
+import { WORKERSTACK_VERSION } from '../version'
 import { workerStorageFactory } from './r2'
 import { durableRateLimitStore } from './rate-limiter'
 import { HubPublisher } from './realtime-hub'
@@ -63,9 +69,40 @@ export function envStrings(env: WorkerEnv): Record<string, string> {
   return out
 }
 
+let isolateTelemetry: { key: string; telemetry: Telemetry } | undefined
+
+/**
+ * The isolate's reporter to Bunderhost, or undefined without the platform's
+ * variables. The Start entry times SSR with it and the app reports through it,
+ * so a render does not have to start the app just to be timed.
+ */
+export function workerTelemetry(env: WorkerEnv): Telemetry | undefined {
+  const text = (value: unknown) =>
+    typeof value === 'string' ? value : undefined
+  const config = telemetryFromEnv(
+    {
+      BUNDERHOST_TELEMETRY_URL: text(env.BUNDERHOST_TELEMETRY_URL),
+      BUNDERHOST_TELEMETRY_TOKEN: text(env.BUNDERHOST_TELEMETRY_TOKEN),
+      BUNDERSTACK_REVISION: text(env.BUNDERSTACK_REVISION),
+      WORKERSTACK_REVISION: text(env.WORKERSTACK_REVISION),
+    },
+    { runtime: 'workerstack', version: WORKERSTACK_VERSION },
+  )
+  if (!config) return undefined
+  const key = JSON.stringify(config)
+  if (isolateTelemetry?.key !== key)
+    isolateTelemetry = {
+      key,
+      telemetry: createTelemetry(config, { intervalMs: 10_000 }),
+    }
+  return isolateTelemetry.telemetry
+}
+
 export function workerPlatform(env: WorkerEnv): Partial<Platform> {
   const { SCHEDULER, REALTIME, RATE_LIMITER } = env
+  const telemetry = workerTelemetry(env)
   return {
+    ...(telemetry ? { telemetry } : {}),
     ...(SCHEDULER
       ? {
           jobs: {

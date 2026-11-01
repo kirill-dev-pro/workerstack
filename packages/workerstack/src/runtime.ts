@@ -366,7 +366,8 @@ export async function materializeWorkerstack<
     version: WORKERSTACK_VERSION,
   })
   const telemetry: Telemetry = telemetryConfig
-    ? createTelemetry(telemetryConfig, { logger, intervalMs: 10_000 })
+    ? (platform.telemetry ??
+      createTelemetry(telemetryConfig, { logger, intervalMs: 10_000 }))
     : noopTelemetry
   if (telemetryConfig) lifecycle.add(() => telemetry.stop())
   const {
