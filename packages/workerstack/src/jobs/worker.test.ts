@@ -850,7 +850,8 @@ test('an idle pump costs one read regardless of how many definitions exist', asy
   // Warm the cron cursors; they are hydrated once per runner.
   await r.pump(now)
 
-  const client = db.$client as unknown as {
+  // drizzle's libsql type no longer declares `$client`; the instance has it.
+  const client = (db as unknown as { $client: unknown }).$client as {
     execute: (...args: unknown[]) => Promise<unknown>
   }
   const original = client.execute
