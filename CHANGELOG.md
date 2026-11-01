@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.4
+
+- An API call an SSR loader makes in the isolate keeps its background work.
+  `createIsomorphicFetch` gave the Worker a `waitUntil` that dropped what it
+  was handed, so the Scheduler notify of an isolate's first API call and the
+  telemetry flush were cancelled when the page response ended: canceled
+  Scheduler `/notify` invocations and lost telemetry windows. Worker
+  handlers now carry their request's ExecutionContext to such calls. A
+  custom Worker entry gets the same with `worker.withContext(ctx, fn)`;
+  without it, the call waits up to 2 s for that work.
+
 ## 0.2.3
 
 - A Worker isolate starts cheaper, and on a quiet app almost every request
