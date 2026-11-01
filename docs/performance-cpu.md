@@ -17,7 +17,8 @@ about 104k on Scheduler alarms (8.7k alarms a day, about 12 ms each).
   and each one evicts its isolate between requests. So the earlier guess, a
   35–50 ms overhead on every request, is wrong as stated. The overhead is
   real, but it is a per-isolate start that nearly every request pays.
-- **The Scheduler re-armed once per fresh isolate.** Each new isolate's
+- **The Scheduler re-armed once per fresh isolate.** (Cheap per alarm, about
+  2 ms in production, but about 8.7k a day.) Each new isolate's
   `startScheduler` sent the same `/notify` as an enqueue. That pulled the alarm
   to *now*, and the alarm that found nothing scheduled a one-second retry:
   **2 alarms per fresh isolate**, measured. That matches production's alarm
@@ -184,13 +185,33 @@ start-up no longer pre-warms code the request path shares with it.
 
 ### What this means for production
 
-If, as the numbers suggest, most production requests are cold, the branch
-saves roughly 15–17 ms CPU on most fetches. At 9.4k fetches a day that is
-about 140–160k CPU ms a day, 12–14% of fetch CPU. Removing the
-startup-driven alarms saves most of the ~104k alarm CPU ms a day. Together
-that is roughly a fifth of the account's daily CPU. The rest of a cold
-request is SSR rendering and app code. Cutting that further takes app-side
-changes (next section).
+Production Observability (read-only, 24 h, from AIRealty Perf) has no cold
+start field, but CPU is bimodal, as the cold-isolate reading predicts:
+
+- `get-session` (n=530): p10 8, p25 11, p50 68, p90 155 ms. 101 requests
+  under 10 ms, 132 at 10–30 ms, 297 at 30 ms or more.
+- `recordVisit`: p10 6, p50 73. `/`: p10 31, p50 140. All main-worker
+  fetches (n=9,079): p10 7, p50 103, p90 288.
+- Scheduler: 8,859 alarms and 4,866 `fetch` (notify) events, about 1.8
+  alarms per notify, every hour of the day. Alarm CPU median 2 ms, p90 8.
+  The 12 ms average comes from a tail of cron alarms that run real handlers.
+
+So about half of the requests or more run in a fresh isolate, and a warm
+production request costs about 5–10x the local warm number. A cold one
+costs about 2x the local cold number.
+
+- **Fetch:** the branch saves 15–17 ms locally per cold request. At the
+  observed cold share and a 1–2x local-to-edge factor, that is about
+  80–160k CPU ms a day, 7–14% of fetch CPU.
+- **Scheduler:** the notify-driven alarms cost about 2 ms each, about 18k
+  CPU ms a day, plus about 4.9k notify requests. That part goes away. The
+  cron alarms, which carry most of the ~104k alarm CPU ms, are real work and
+  stay.
+
+Together that is roughly 10–15% of airealty's daily CPU. Cutting much more
+needs the app-side changes below (AIRealty Perf has started on them: early
+answers for the PostHog proxy, asset misses, anonymous `get-session` and bot
+`recordVisit`, and edge caching of anonymous pages).
 
 ## Not changed here: recommendations for the app
 
