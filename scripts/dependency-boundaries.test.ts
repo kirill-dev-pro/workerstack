@@ -187,6 +187,8 @@ describe('published dependency boundaries', () => {
       '@noble/hashes',
       '@standard-schema/spec',
       '@standardserver/core',
+      // SigV4 for the SES channel: one signed fetch instead of the AWS SDK.
+      'aws4fetch',
       // celld bundles the Worker with it under `workerstack dev`.
       'esbuild',
       'jose',
