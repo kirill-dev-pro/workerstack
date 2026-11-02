@@ -85,3 +85,15 @@ test('devVars uses the dev secret when the user has none', () => {
   )
   expect(vars.AUTH_SECRET).toBe('generated')
 })
+
+test('devVars keeps a JSON value parseable for wrangler', () => {
+  const config = '{"ses":{"inbound":{"secret":"s","channels":{"inbox":[]}}}}'
+  const text = devVars({
+    userEnv: { WORKERSTACK_MESSAGING_CONFIG: config },
+    databaseUrl: 'http://127.0.0.1:8080',
+    appUrl: 'http://localhost:5173',
+    authSecret: 'dev',
+  })
+  expect(text).toContain(`WORKERSTACK_MESSAGING_CONFIG='${config}'`)
+  expect(parseDotenv(text).WORKERSTACK_MESSAGING_CONFIG).toBe(config)
+})

@@ -59,6 +59,9 @@ export async function devSecret(stateDir: string): Promise<string> {
 
 function quote(value: string) {
   if (/^[A-Za-z0-9_./:@+-]*$/.test(value)) return value
+  // Wrangler's dotenv parser keeps `\"` inside double quotes as is, which
+  // breaks JSON values; single quotes carry a value literally.
+  if (!/['\n]/.test(value)) return `'${value}'`
   return `"${value.replace(/["\\]/g, '\\$&').replace(/\n/g, '\\n')}"`
 }
 
