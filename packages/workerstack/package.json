@@ -1,6 +1,6 @@
 {
   "name": "workerstack",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Full-stack framework for Cloudflare Workers: one blueprint declares the API, auth, storage, jobs, cron, and realtime, and SSR with TanStack Start runs next to them.",
   "keywords": [
     "backend",
@@ -185,6 +185,7 @@
     "@noble/hashes": "^2.3.0",
     "@standard-schema/spec": "1.1.0",
     "@standardserver/core": "0.7.1",
+    "aws4fetch": "^1.0.20",
     "esbuild": "^0.28.2",
     "jose": "^6.2.7",
     "valibot": "1.4.2",
@@ -200,6 +201,7 @@
     "@orpc/tanstack-query": "2.0.0-beta.37",
     "@orpc/valibot": "2.0.0-beta.37",
     "@standardserver/core": "0.7.1",
+    "aws4fetch": "^1.0.20",
     "@tanstack/db": "0.6.16",
     "@tanstack/query-core": "^5.101.1",
     "@tanstack/query-db-collection": "1.1.0",

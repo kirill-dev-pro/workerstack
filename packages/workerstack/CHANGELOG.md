@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.6
+
+- Mail from Bunderhost. `ses({ receive: true })` declares a channel that
+  accepts the mail Bunderhost routes to it, and
+  `jobs.inbound('<channel>', { handler })` gets each message, parsed, as a
+  durable job (`InboundEmail`: sender, recipients, subject, text, HTML,
+  headers, attachment metadata, `raw()`). Bunderhost delivers to
+  `POST /api/_bunderstack/messaging/inbound`, signed with the secret it puts
+  in `WORKERSTACK_MESSAGING_CONFIG`; a repeated delivery is a no-op, and the
+  route skips the per-IP rate limit since the signature is the gate. The
+  blueprint marks the channel `receive: true`, and a receiving channel needs
+  exactly one handler. Tests deliver with `t.messaging.<channel>.receive()`.
+- `ses()` sends through Amazon SES with one SigV4-signed request; on
+  Bunderhost the key, region, configuration set and tenant come from the
+  platform. Email messages take `headers` for threading, and `send()` returns
+  the `Message-ID` when the provider makes it knowable.
+- Hosted sends are tagged with `bunderstack_message_id` and
+  `bunderhost_environment_id`, so Bunderhost can match delivery events to the
+  journal.
+
 ## 0.2.5
 
 - Telemetry the ingest turns away is no longer lost. When Bunderhost answers

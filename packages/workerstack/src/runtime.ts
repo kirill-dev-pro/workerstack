@@ -74,7 +74,13 @@ import {
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import { consoleLogger, type WorkerstackLogger } from './logging'
-import { createMessaging } from './messaging/runtime'
+import { createInboundReceiver, type InboundRoute } from './messaging/inbound'
+import {
+  createMessaging,
+  managedConfig,
+  receivingFor,
+} from './messaging/runtime'
+import { isMessagingDescriptor } from './messaging/types'
 import { resolvePlatform, type Platform } from './platform'
 import {
   PROVISION_INTERNALS,
@@ -633,7 +639,28 @@ export async function materializeWorkerstack<
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)
+    const inboundRoutes = resolveInboundRoutes(
+      (options.messaging ?? {}) as MessagingConfig,
+      resolvedDefs,
+      env,
+    )
+    const inbound =
+      inboundRoutes.length > 0
+        ? createInboundReceiver({
+            db,
+            routes: inboundRoutes,
+            enqueue: (name, input, opts) => jobs.enqueue(name, input, opts),
+          })
+        : undefined
     overrides.captureTestingHandle?.({
+      receive: async (payload) => {
+        if (!inbound) {
+          throw new Error(
+            '[workerstack] no channel receives mail — declare one with receive: true and a jobs.inbound handler',
+          )
+        }
+        return inbound.accept(payload)
+      },
       async tick(now) {
         const previous = enqueueNow
         enqueueNow = now
@@ -854,6 +881,7 @@ export async function materializeWorkerstack<
           ? (req) => auth.handler(req)
           : undefined,
       apiHandler,
+      inboundHandler: inbound ? (req) => inbound.handle(req) : undefined,
       rateLimit: options.rateLimit,
       rateLimitStore: platform.rateLimit,
     })
@@ -1018,3 +1046,41 @@ export {
   normalizeForeignOpenAPISpec,
 } from './api/registry'
 export { mergeOpenAPISpecs } from './api/openapi'
+
+/**
+ * Receiving channels paired with their `jobs.inbound` handler. The manifest
+ * already refused a receiving channel without exactly one handler, so a miss
+ * here means the definition changed between inspection and start.
+ */
+function resolveInboundRoutes(
+  messaging: MessagingConfig,
+  defs: JobsDefs | undefined,
+  env: Record<string, unknown>,
+): InboundRoute[] {
+  const managed = managedConfig(
+    env.WORKERSTACK_MESSAGING_CONFIG as string | undefined,
+  )
+  const routes: InboundRoute[] = []
+  for (const [channel, descriptor] of Object.entries(messaging)) {
+    if (!isMessagingDescriptor(descriptor) || descriptor.kind !== 'email')
+      continue
+    if ((descriptor.config as { receive?: boolean }).receive !== true) continue
+    const job = Object.entries(defs ?? {}).find(
+      ([, def]) => def.kind === 'job' && def.inbound === channel,
+    )?.[0]
+    if (!job) {
+      throw new Error(
+        `[workerstack] messaging.${channel} receives mail but no jobs.inbound('${channel}', …) handles it`,
+      )
+    }
+    const { secret, domains } = receivingFor(channel, descriptor, managed)
+    routes.push({
+      channel,
+      provider: descriptor.provider,
+      secret,
+      domains,
+      job,
+    })
+  }
+  return routes
+}

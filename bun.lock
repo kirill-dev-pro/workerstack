@@ -116,7 +116,7 @@
     },
     "packages/workerstack": {
       "name": "workerstack",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "bin": {
         "workerstack": "./dist/cli.js",
       },
@@ -124,6 +124,7 @@
         "@noble/hashes": "^2.3.0",
         "@standard-schema/spec": "1.1.0",
         "@standardserver/core": "0.7.1",
+        "aws4fetch": "^1.0.20",
         "esbuild": "^0.28.2",
         "jose": "^6.2.7",
         "valibot": "1.4.2",
@@ -146,6 +147,7 @@
         "@tanstack/react-start": "^1.168.26",
         "@types/nodemailer": "^6",
         "@types/react": "^19.0.0",
+        "aws4fetch": "^1.0.20",
         "better-auth": "^1.7.6",
         "drizzle-kit": "^0.30.0",
         "drizzle-orm": "^0.45.0",
@@ -770,6 +772,8 @@
     "arkregex": ["arkregex@0.0.8", "", { "dependencies": { "@ark/util": "0.56.2" } }, "sha512-PJcx6G1kQTgLKPUbeYlYecDRaKq15AMSGVajlKFYWlPeJRQL+j3dKE6tyMs40HZ99djS1l9Vhl3ezAHy9JBIqQ=="],
 
     "arktype": ["arktype@2.2.3", "", { "dependencies": { "@ark/schema": "0.56.2", "@ark/util": "0.56.2", "arkregex": "0.0.8" } }, "sha512-7W+0RLTUNJiBFIIZXwOQxSR8Z273IAd6IvqBeG9+gHnQKFsIx2C0iOtGTmMrPnlX4qLXyc5+ll7A0BIj9WrbTg=="],
+
+    "aws4fetch": ["aws4fetch@1.0.20", "", {}, "sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g=="],
 
     "babel-dead-code-elimination": ["babel-dead-code-elimination@1.0.12", "", { "dependencies": { "@babel/core": "^7.23.7", "@babel/parser": "^7.23.6", "@babel/traverse": "^7.23.7", "@babel/types": "^7.23.6" } }, "sha512-GERT7L2TiYcYDtYk1IpD+ASAYXjKbLTDPhBtYj7X1NuRMDTMtAx9kyBenub1Ev41lo91OHCKdmP+egTDmfQ7Ig=="],
 
