@@ -68,6 +68,21 @@ const MAX_MESSAGE_CHARS = 2_000
 const MAX_CAUSE_DEPTH = 5
 const MAX_CONTEXT_CHARS = 2_048
 const WARN_EVERY_MS = 5 * 60_000
+/** Wait after a 429/503 without a usable Retry-After. */
+export const DEFAULT_RETRY_AFTER_MS = 30_000
+const MAX_RETRY_AFTER_MS = 10 * 60_000
+
+/** `Retry-After` in seconds (or an HTTP date), bounded to ten minutes. */
+export function retryAfterMs(header: string | null, at = Date.now()): number {
+  if (header) {
+    const seconds = Number(header)
+    const ms = Number.isFinite(seconds)
+      ? seconds * 1000
+      : Date.parse(header) - at
+    if (Number.isFinite(ms) && ms > 0) return Math.min(ms, MAX_RETRY_AFTER_MS)
+  }
+  return DEFAULT_RETRY_AFTER_MS
+}
 
 export function telemetryFromEnv(
   env: Pick<
@@ -218,6 +233,8 @@ export function createTelemetry(
   let lastWarnAt = 0
   let timer: ReturnType<typeof setInterval> | undefined
   let inFlight: Promise<void> | undefined
+  /** No send before this time: the ingest asked us to wait (429/503). */
+  let retryAt = Number.NEGATIVE_INFINITY
 
   const routeLabel = (route: string) => {
     if (routes.has(route)) return route
@@ -253,7 +270,66 @@ export function createTelemetry(
     jobs.size > 0 ||
     errorsBySource.size > 0
 
+  type Taken = {
+    errors: QueuedError[]
+    requests: Map<string, Map<string, number>>
+    requestLatency: Map<string, Histogram>
+    jobs: Map<string, Map<string, number>>
+    jobLatency: Map<string, Histogram>
+    errorsBySource: Map<string, number>
+  }
+
+  const addCounts = (
+    into: Map<string, Map<string, number>>,
+    from: Map<string, Map<string, number>>,
+  ) => {
+    for (const [key, byLabel] of from) {
+      let target = into.get(key)
+      if (!target) into.set(key, (target = new Map()))
+      for (const [label, value] of byLabel)
+        target.set(label, (target.get(label) ?? 0) + value)
+    }
+  }
+
+  const addHistograms = (
+    into: Map<string, Histogram>,
+    from: Map<string, Histogram>,
+  ) => {
+    for (const [key, entry] of from) {
+      const target = into.get(key)
+      if (!target) {
+        into.set(key, entry)
+        continue
+      }
+      entry.buckets.forEach((count, i) => (target.buckets[i]! += count))
+      target.sum += entry.sum
+    }
+  }
+
+  /**
+   * Puts a refused window back in front of what was recorded since, so the
+   * next send carries both. Counters and histograms add up; errors keep
+   * their order and the queue's cap.
+   */
+  const restore = (taken: Taken) => {
+    addCounts(requests, taken.requests)
+    addHistograms(requestLatency, taken.requestLatency)
+    addCounts(jobs, taken.jobs)
+    addHistograms(jobLatency, taken.jobLatency)
+    for (const [source, value] of taken.errorsBySource)
+      errorsBySource.set(source, (errorsBySource.get(source) ?? 0) + value)
+    errors = [...taken.errors, ...errors].slice(0, MAX_QUEUED_ERRORS)
+  }
+
   const drain = () => {
+    const taken: Taken = {
+      errors,
+      requests,
+      requestLatency,
+      jobs,
+      jobLatency,
+      errorsBySource,
+    }
     const at = new Date(now()).toISOString()
     const metrics: Array<{
       name: string
@@ -330,12 +406,12 @@ export function createTelemetry(
     jobs = new Map()
     jobLatency = new Map()
     errorsBySource = new Map()
-    return batch
+    return { batch, taken }
   }
 
   const send = async () => {
-    if (!hasData()) return
-    const batch = drain()
+    if (!hasData() || now() < retryAt) return
+    const { batch, taken } = drain()
     lastFlushAt = now()
     try {
       const response = await fetchImpl(`${config.url}/events`, {
@@ -347,6 +423,14 @@ export function createTelemetry(
         body: JSON.stringify(batch),
         signal: AbortSignal.timeout(10_000),
       })
+      // 429 and 503 mean the ingest stored nothing: keep the window and
+      // send it with the next one once the ingest says we may. Every other
+      // failure may have been stored, so it is not sent twice.
+      if (response.status === 429 || response.status === 503) {
+        restore(taken)
+        retryAt = now() + retryAfterMs(response.headers.get('retry-after'))
+        return
+      }
       if (!response.ok && response.status !== 204)
         warn(`Bunderhost answered ${response.status}`)
     } catch (error) {

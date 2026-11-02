@@ -11,7 +11,9 @@ import { createWorker } from '../workers/index'
 import { telemetryMiddleware } from './middleware'
 import {
   createTelemetry,
+  DEFAULT_RETRY_AFTER_MS,
   describeError,
+  retryAfterMs,
   noopTelemetry,
   statusClass,
   telemetryFromEnv,
@@ -29,12 +31,27 @@ type Batch = {
   }>
 }
 
-function harness(options: { fail?: boolean } = {}) {
+function harness(
+  options: {
+    fail?: boolean
+    /** Status codes (and Retry-After) to answer with, in order; then 204. */
+    answers?: { status: number; retryAfter?: string }[]
+  } = {},
+) {
   const batches: Batch[] = []
+  const refused: Batch[] = []
   let now = 1_000_000
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init)
     if (options.fail) throw new Error('connect ECONNREFUSED')
+    const answer = options.answers?.shift()
+    if (answer && answer.status !== 204) {
+      refused.push((await request.json()) as Batch)
+      return new Response(null, {
+        status: answer.status,
+        headers: answer.retryAfter ? { 'retry-after': answer.retryAfter } : {},
+      })
+    }
     batches.push((await request.json()) as Batch)
     return new Response(null, { status: 204 })
   }) as typeof fetch
@@ -49,7 +66,13 @@ function harness(options: { fail?: boolean } = {}) {
     },
     { fetch: fetchImpl, now: () => now, logger, intervalMs: 10_000 },
   )
-  return { telemetry, batches, logs, advance: (ms: number) => void (now += ms) }
+  return {
+    telemetry,
+    batches,
+    refused,
+    logs,
+    advance: (ms: number) => void (now += ms),
+  }
 }
 
 test('configuration needs both variables and picks up the Worker release', () => {
@@ -285,4 +308,68 @@ test('a Worker reports API failures through waitUntil and stays silent without t
   } finally {
     server.stop(true)
   }
+})
+
+const requestsMetric = (batch: Batch, route: string) =>
+  batch.metrics.find(
+    (metric) =>
+      metric.name === 'bh_app_requests' && metric.labels.route === route,
+  )?.value
+
+test('a 429 keeps the window and sends it with the next one after Retry-After', async () => {
+  const h = harness({ answers: [{ status: 429, retryAfter: '30' }] })
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  h.telemetry.captureException(new Error('boom'), { source: 'api' })
+  await h.telemetry.flushIfDue()
+  expect(h.refused).toHaveLength(1)
+  expect(h.batches).toHaveLength(0)
+
+  // Within Retry-After nothing goes out, errors included.
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  h.telemetry.captureException(new Error('again'), { source: 'api' })
+  h.advance(29_000)
+  await h.telemetry.flushIfDue()
+  await h.telemetry.flush()
+  expect(h.batches).toHaveLength(0)
+
+  h.advance(1_000)
+  await h.telemetry.flushIfDue()
+  expect(h.batches).toHaveLength(1)
+  const [sent] = h.batches
+  expect(requestsMetric(sent!, 'a')).toBe(2)
+  expect(sent!.errors.map((error) => error.message)).toEqual(['boom', 'again'])
+  expect(
+    sent!.metrics.find(
+      (metric) =>
+        metric.name === 'bh_app_request_duration_ms_bucket' &&
+        metric.labels.le === '+Inf',
+    )?.value,
+  ).toBe(2)
+  expect(h.logs.warnings).toHaveLength(0)
+})
+
+test('a 503 without Retry-After waits the default; other failures still drop', async () => {
+  const h = harness({ answers: [{ status: 503 }, { status: 500 }] })
+  h.telemetry.recordRequest({ route: 'a', status: 200, durationMs: 1 })
+  await h.telemetry.flush()
+  h.advance(DEFAULT_RETRY_AFTER_MS - 1)
+  await h.telemetry.flush()
+  expect(h.refused).toHaveLength(1)
+  h.advance(1)
+  // The kept window goes out, and the 500 drops it (it may have been stored).
+  await h.telemetry.flush()
+  expect(h.refused).toHaveLength(2)
+  expect(h.logs.warnings).toHaveLength(1)
+  h.advance(10_000)
+  await h.telemetry.flush()
+  expect(h.batches).toHaveLength(0)
+})
+
+test('Retry-After is read in seconds or as a date, and bounded', () => {
+  expect(retryAfterMs('30', 0)).toBe(30_000)
+  expect(retryAfterMs(new Date(5_000).toUTCString(), 0)).toBe(5_000)
+  expect(retryAfterMs('86400', 0)).toBe(600_000)
+  expect(retryAfterMs(null, 0)).toBe(DEFAULT_RETRY_AFTER_MS)
+  expect(retryAfterMs('soon', 0)).toBe(DEFAULT_RETRY_AFTER_MS)
+  expect(retryAfterMs('0', 0)).toBe(DEFAULT_RETRY_AFTER_MS)
 })
