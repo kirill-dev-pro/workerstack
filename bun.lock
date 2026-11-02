@@ -116,7 +116,7 @@
     },
     "packages/workerstack": {
       "name": "workerstack",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "bin": {
         "workerstack": "./dist/cli.js",
       },

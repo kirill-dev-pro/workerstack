@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+
+- Telemetry the ingest turns away is no longer lost. When Bunderhost answers
+  429 or 503, the window goes back into the queue and is sent with the next
+  one after `Retry-After`; until then the isolate sends nothing. A crawler
+  burst that starts hundreds of isolates a minute used to drop every
+  refused window ("telemetry not delivered (Bunderhost answered 429)").
+  Other failures still drop the window, as one may have been stored.
+
 ## 0.2.4
 
 - An API call an SSR loader makes in the isolate keeps its background work.
