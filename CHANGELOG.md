@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.7
+
+- Security: generated CRUD from the `userId` convention is private to the
+  row owner. A table with a `userId` column and no access entry used to get
+  public list, get and create, so any visitor could page through it. It now
+  defaults to `list: 'authenticated'` scoped to the caller's own rows,
+  `get: 'owner'` and `create: 'authenticated'`; signed-out callers get 401.
+  The same defaults apply to an explicit entry with an owner column that
+  leaves `list`, `get` or `create` unset. Declare public reads with
+  `{ list: 'public', get: 'public' }`.
+- Security: the convention never exposes Better Auth plugin tables
+  (`two_factor`, `passkey`, `oauth_*`, `organization`, `member`,
+  `invitation`, `team*`, `apikey`, `jwks`, `device_code`, `sso_provider`,
+  `wallet_address`; exported as `AUTH_PLUGIN_TABLE_NAMES`) or any table with
+  a credential column (`secret`, `password`, `backupCodes`, `privateKey`, or
+  a name ending in `token`). Only an explicit access entry exposes one.
+
 ## 0.2.6
 
 - Mail from Bunderhost. `ses({ receive: true })` declares a channel that
