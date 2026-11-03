@@ -46,6 +46,54 @@ test('fetch serves the API and falls back to assets on 404', async () => {
   expect(await page.text()).toBe('<html>spa</html>')
 })
 
+test('an API 404 and a request with a body are never handed to the assets', async () => {
+  const worker = createWorker(backendWithJobs())
+  const assetCalls: string[] = []
+  const env = {
+    DATABASE_URL: ':memory:',
+    ASSETS: {
+      fetch: async (request: Request) => {
+        assetCalls.push(`${request.method} ${new URL(request.url).pathname}`)
+        return new Response('<html>spa</html>')
+      },
+    },
+  }
+  const missingApi = await worker.handler.fetch(
+    new Request('https://app.test/api/no-such-route'),
+    env,
+    ctx(),
+  )
+  expect(missingApi.status).toBe(404)
+  const post = await worker.handler.fetch(
+    new Request('https://app.test/boards/1', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'x' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    env,
+    ctx(),
+  )
+  expect(post.status).toBe(404)
+  const head = await worker.handler.fetch(
+    new Request('https://app.test/boards/1', { method: 'HEAD' }),
+    env,
+    ctx(),
+  )
+  expect(head.status).toBe(200)
+  expect(assetCalls).toEqual(['HEAD /boards/1'])
+})
+
+test('isPageRequest is true only for GET or HEAD outside /api', async () => {
+  const { isPageRequest } = await import('./index')
+  expect(isPageRequest(new Request('https://a.test/boards'))).toBe(true)
+  expect(isPageRequest(new Request('https://a.test/api/x'))).toBe(false)
+  expect(isPageRequest(new Request('https://a.test/api'))).toBe(false)
+  expect(isPageRequest(new Request('https://a.test/apidocs'))).toBe(true)
+  expect(
+    isPageRequest(new Request('https://a.test/boards', { method: 'POST' })),
+  ).toBe(false)
+})
+
 test('a failed start is retried by the next request', async () => {
   const backend = backendWithJobs()
   let calls = 0

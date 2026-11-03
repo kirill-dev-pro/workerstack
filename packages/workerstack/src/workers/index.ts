@@ -38,8 +38,12 @@ export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
         const app = await appFor(backend, env, 'fetch')
         try {
           const response = await app.handler(request)
-          // A path that reached the Worker but has no route: let the SPA answer.
-          if (response.status === 404 && env.ASSETS)
+          // A page path that reached the Worker but has no route: let the SPA
+          // answer. Only a GET or HEAD outside /api/ is a page; an API 404 is
+          // the app's answer, and a request whose body the app has already
+          // read cannot be handed on (Workers throw "Cannot reconstruct a
+          // Request with a used body").
+          if (response.status === 404 && env.ASSETS && isPageRequest(request))
             return env.ASSETS.fetch(request)
           return response
         } finally {
@@ -105,3 +109,10 @@ export { durableRateLimitStore, RateLimiter } from './rate-limiter'
 export { bucketBindingName, R2StorageAdapter } from './r2'
 export type * from './types'
 export { workerPlanFromBlueprint, type WorkerPlan } from '../worker-plan'
+
+/** A browser navigation the SPA may answer: GET or HEAD, outside /api/. */
+export function isPageRequest(request: Request): boolean {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false
+  const { pathname } = new URL(request.url)
+  return pathname !== '/api' && !pathname.startsWith('/api/')
+}
