@@ -6,6 +6,7 @@ import {
   validateAndResolveAccess,
   checkAccess,
   AUTH_TABLE_NAMES,
+  AUTH_PLUGIN_TABLE_NAMES,
 } from './access'
 
 const posts = sqliteTable('posts', {
@@ -32,6 +33,113 @@ test('validateAndResolveAccess applies userId convention', () => {
   expect(access.has('posts')).toBe(true)
   expect(access.get('posts')?.ownerColumn).toBe('userId')
   expect(access.get('posts')?.update).toBe('owner')
+})
+
+test('the userId convention makes a table private to its owner', () => {
+  const entry = validateAndResolveAccess({ posts }).get('posts')!
+  expect(entry.list).toBe('authenticated')
+  expect(entry.get).toBe('owner')
+  expect(entry.create).toBe('authenticated')
+  expect(entry.delete).toBe('owner')
+  const request = new Request('http://localhost/')
+  expect(
+    entry.readScope?.({ user: { id: 'u1', email: 'a@b.c' }, request }),
+  ).toEqual({ userId: 'u1' })
+  expect(entry.readScope?.({ user: null, request })).toEqual({ userId: [] })
+})
+
+test('an explicit list rule keeps its own read scope', () => {
+  const entry = validateAndResolveAccess(
+    { posts },
+    { posts: { list: 'public', get: 'public' } },
+  ).get('posts')!
+  expect(entry.list).toBe('public')
+  expect(entry.get).toBe('public')
+  expect(entry.readScope).toBeUndefined()
+})
+
+test('the userId convention never exposes Better Auth plugin tables', () => {
+  const twoFactor = sqliteTable('two_factor', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+  })
+  const passkey = sqliteTable('passkey', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+  })
+  const member = sqliteTable('member', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    organizationId: text('organization_id').notNull(),
+  })
+  const oauthConsent = sqliteTable('oauth_consent', {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+  })
+  const access = validateAndResolveAccess({
+    twoFactor,
+    passkey,
+    member,
+    oauthConsent,
+  })
+  expect(access.size).toBe(0)
+  for (const name of [
+    'two_factor',
+    'passkey',
+    'member',
+    'oauth_access_token',
+    'apikey',
+    'jwks',
+    'invitation',
+  ]) {
+    expect(AUTH_PLUGIN_TABLE_NAMES.has(name)).toBe(true)
+  }
+  // An app can still expose one on purpose.
+  const explicit = validateAndResolveAccess(
+    { member },
+    { member: { list: 'authenticated' } },
+  )
+  expect(explicit.has('member')).toBe(true)
+})
+
+test('the userId convention skips tables with credential columns', () => {
+  const renamedTokens = sqliteTable('identity_access_token', {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+    accessToken: text('access_token'),
+  })
+  const clients = sqliteTable('identity_client', {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+    clientSecret: text('client_secret'),
+  })
+  const keys = sqliteTable('vpn_keys', {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+    proxyToken: text('proxy_token'),
+  })
+  const usage = sqliteTable('usage', {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+    inputTokens: integer('input_tokens'),
+  })
+  const access = validateAndResolveAccess({
+    renamedTokens,
+    clients,
+    keys,
+    usage,
+  })
+  expect([...access.keys()]).toEqual(['usage'])
+})
+
+test('exposeAuthTable on user keeps public profile reads', () => {
+  const entry = validateAndResolveAccess(
+    { user },
+    { user: { exposeAuthTable: true } },
+  ).get('user')!
+  expect(entry.list).toBe('public')
+  expect(entry.get).toBe('public')
+  expect(entry.create).toBe('deny')
 })
 
 test('validateAndResolveAccess skips tables without owner or rules', () => {

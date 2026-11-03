@@ -81,7 +81,7 @@ test('auth tables are not exposed via auto-CRUD', async () => {
   expect(res.status).toBe(404)
 })
 
-test('posts CRUD is available with userId convention', async () => {
+test('convention CRUD on a userId table needs a signed-in caller', async () => {
   const res = await app.handler(
     new Request('http://localhost/api/posts', {
       method: 'POST',
@@ -89,7 +89,73 @@ test('posts CRUD is available with userId convention', async () => {
       body: JSON.stringify({ title: 'Hello' }),
     }),
   )
-  expect(res.status).toBe(201)
+  expect(res.status).toBe(401)
+  const list = await app.handler(new Request('http://localhost/api/posts'))
+  expect(list.status).toBe(401)
+})
+
+test('convention CRUD on a userId table shows each caller only their own rows', async () => {
+  const twoFactor = sqliteTable('two_factor', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+  })
+  const vpnKeys = sqliteTable('vpn_keys', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    proxyToken: text('proxy_token'),
+  })
+  const owned = await workerstack({
+    schema: { ...schema, twoFactor, vpnKeys },
+    database: { url: ':memory:', adapter: libsql() },
+    authResolver: {
+      api: {
+        getSession: async ({ headers }) => {
+          const id = headers.get('x-user')
+          return id ? { user: { id, email: `${id}@example.com` } } : null
+        },
+      },
+    },
+  }).start()
+  await provision(owned, { force: true })
+  const call = (path: string, user?: string, init: RequestInit = {}) =>
+    owned.handler(
+      new Request(`http://localhost${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user ? { 'x-user': user } : {}),
+        },
+      }),
+    )
+
+  const created = await call('/api/posts', 'u1', {
+    method: 'POST',
+    body: JSON.stringify({ title: 'Mine', userId: 'u2' }),
+  })
+  expect(created.status).toBe(201)
+  const post = (await created.json()) as { id: number; userId: string }
+  expect(post.userId).toBe('u1')
+
+  const mine = (await (await call('/api/posts', 'u1')).json()) as {
+    items: unknown[]
+  }
+  expect(mine.items).toHaveLength(1)
+  const theirs = (await (await call('/api/posts', 'u2')).json()) as {
+    items: unknown[]
+  }
+  expect(theirs.items).toHaveLength(0)
+  expect((await call(`/api/posts/${post.id}`, 'u1')).status).toBe(200)
+  expect([403, 404]).toContain(
+    (await call(`/api/posts/${post.id}`, 'u2')).status,
+  )
+  expect((await call(`/api/posts/${post.id}`)).status).toBe(401)
+
+  // Auth plugin tables and tables with credential columns get no routes.
+  expect((await call('/api/two_factor', 'u1')).status).toBe(404)
+  expect((await call('/api/vpn_keys', 'u1')).status).toBe(404)
+  await owned.close()
 })
 
 test('uses an application-provided session resolver for CRUD access', async () => {

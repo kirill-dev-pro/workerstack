@@ -108,6 +108,7 @@ export {
   validateAndResolveAccess,
   checkAccess,
   AUTH_TABLE_NAMES,
+  AUTH_PLUGIN_TABLE_NAMES,
 } from './access'
 export type {
   TableAccessInput,

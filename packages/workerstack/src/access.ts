@@ -11,6 +11,63 @@ export const AUTH_TABLE_NAMES = new Set([
 
 const EXPOSEABLE_AUTH_TABLES = new Set(['user'])
 
+/**
+ * Tables that Better Auth plugins create (two-factor, passkey, OAuth provider,
+ * organization, API keys, JWT, device authorization, SSO, SIWE). They hold
+ * secrets, tokens and membership, so the userId convention never turns them
+ * into CRUD routes; an app that really wants one must list it in access.
+ */
+export const AUTH_PLUGIN_TABLE_NAMES = new Set([
+  'two_factor',
+  'twoFactor',
+  'passkey',
+  'oauth_access_token',
+  'oauthAccessToken',
+  'oauth_refresh_token',
+  'oauthRefreshToken',
+  'oauth_application',
+  'oauthApplication',
+  'oauth_client',
+  'oauthClient',
+  'oauth_consent',
+  'oauthConsent',
+  'organization',
+  'organization_role',
+  'organizationRole',
+  'member',
+  'invitation',
+  'team',
+  'team_member',
+  'teamMember',
+  'apikey',
+  'api_key',
+  'apiKey',
+  'jwks',
+  'device_code',
+  'deviceCode',
+  'sso_provider',
+  'ssoProvider',
+  'wallet_address',
+  'walletAddress',
+])
+
+/**
+ * Column names that mark a table as holding credentials. The userId
+ * convention skips such tables even under a name it does not know (an app
+ * that renames Better Auth tables, or its own key table).
+ */
+const CREDENTIAL_COLUMN =
+  /secret|password|passwd|backup_?codes|private_?key|token$/i
+
+function hasCredentialColumn(columns: string[]): boolean {
+  return columns.some((column) => CREDENTIAL_COLUMN.test(column))
+}
+
+/** Rows whose owner column is the caller; nobody when signed out. */
+function ownerReadScope(ownerColumn: string): ScopeResolver {
+  return (ctx) => ({ [ownerColumn]: ctx.user?.id ?? [] })
+}
+
 export type AccessUserBase = {
   id: string
   email: string
@@ -221,11 +278,15 @@ function resolveDefaults(
 ): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
   const listAccess = resolveListAccess(input, columns)
   const explicitlyWritable = new Set(input.writableColumns ?? [])
+  // A table with an owner is private by default: signed-in callers list and
+  // read their own rows and create rows they own. Public reads must be
+  // declared. Tables without an owner keep public reads (crud: true opt-in).
+  const ownerList = ownerColumn !== undefined && input.list === undefined
   return {
     ownerColumn,
-    list: input.list ?? 'public',
-    get: input.get ?? 'public',
-    create: input.create ?? 'public',
+    list: input.list ?? (ownerColumn ? 'authenticated' : 'public'),
+    get: input.get ?? (ownerColumn ? 'owner' : 'public'),
+    create: input.create ?? (ownerColumn ? 'authenticated' : 'public'),
     update: input.update ?? (ownerColumn ? 'owner' : 'deny'),
     delete: input.delete ?? (ownerColumn ? 'owner' : 'deny'),
     writableColumns: input.writableColumns,
@@ -237,7 +298,9 @@ function resolveDefaults(
       ...(ownerColumn ? [ownerColumn] : []),
     ],
     searchableColumns: input.searchableColumns,
-    readScope: input.scope?.read,
+    readScope:
+      input.scope?.read ??
+      (ownerList ? ownerReadScope(ownerColumn) : undefined),
     writeScope: input.scope?.write,
     ...listAccess,
   }
@@ -300,6 +363,9 @@ export function validateAndResolveAccess<
       const defaults = resolveDefaults(
         {
           ...input,
+          // exposeAuthTable is an explicit opt-in to profile reads.
+          list: input.list ?? 'public',
+          get: input.get ?? 'public',
           create: input.create ?? 'deny',
           delete: input.delete ?? 'deny',
         },
@@ -336,8 +402,18 @@ export function validateAndResolveAccess<
       continue
     }
 
-    const ownerColumn = detectOwnerColumn(columns, input)
     const hasExplicitRules = input !== undefined
+    // The userId convention never exposes auth plugin tables or tables with
+    // credential columns; only an explicit access entry can.
+    if (
+      !hasExplicitRules &&
+      (AUTH_PLUGIN_TABLE_NAMES.has(name) ||
+        AUTH_PLUGIN_TABLE_NAMES.has(key) ||
+        hasCredentialColumn(columns))
+    )
+      continue
+
+    const ownerColumn = detectOwnerColumn(columns, input)
     const hasConventionOwner =
       ownerColumn !== undefined &&
       input?.ownerColumn === undefined &&

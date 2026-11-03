@@ -103,6 +103,8 @@ describe('crud operations', () => {
     const access = validateAndResolveAccess(schema, {
       posts: {
         ownerColumn: 'userId',
+        list: 'public',
+        get: 'public',
         create: 'authenticated',
         update: 'owner',
       },
