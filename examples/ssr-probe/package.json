@@ -16,7 +16,7 @@
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
-    "better-auth": "^1.7.6",
+    "better-auth": "^1.7.16",
     "workerstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "react": "^19.0.0",
