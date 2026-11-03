@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.8
+
+- Fix: a Worker hands a 404 to the static assets only for a page request
+  (GET or HEAD outside `/api/`). Every other 404 is returned as the app sent
+  it. Before, a POST whose body the app had read (for example a sign-in with
+  an unconfigured provider, which Better Auth answers with 404) crashed the
+  Worker with "Cannot reconstruct a Request with a used body" (500, error
+  1101), and an unknown `/api/` path got the SPA's HTML with 200.
+
 ## 0.2.7
 
 - Security: generated CRUD from the `userId` convention is private to the
