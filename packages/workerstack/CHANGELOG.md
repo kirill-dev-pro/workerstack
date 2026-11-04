@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+Minor release: app-defined Durable Objects. Hosts that render Worker
+configs from `WorkerPlan` must update (`durableObjects.migrations` is now
+`durableObjects.classes`); Bunderhost does with this release.
 
 - New: app-defined Durable Objects. Declare classes in
   `workerstack({ durableObjects: { DOC_ROOM: DocRoom } })`, keyed by env
