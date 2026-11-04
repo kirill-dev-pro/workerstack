@@ -9,6 +9,8 @@
   "scripts": {
     "test": "bun run --parallel --filter './packages/*' test && bun test scripts/",
     "test:workers": "bun scripts/workers-integration.ts",
+    "test:doc-room": "bun scripts/doc-room-dev.ts",
+    "test:doc-room:celld": "bun scripts/doc-room-celld.ts",
     "test:orpc-contract": "bun test packages/workerstack/src/api/openapi-client-generation.test.ts && bunx tsc --noEmit -p packages/workerstack/tsconfig.json",
     "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "test:bundles": "bun test scripts/bundle-boundaries.test.ts",

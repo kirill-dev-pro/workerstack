@@ -10,6 +10,7 @@ import type {
   WorkerstackConfig,
   RealtimeConfigInput,
 } from './config'
+import type { DurableObjectsConfig } from './durable-objects'
 import type { EnvConfigInput, ValidatedEnv } from './env'
 import type { WorkerstackJobsBuilder, JobsDefs } from './jobs'
 import type { WorkerstackManifest } from './manifest'
@@ -278,6 +279,7 @@ export function workerstack(
     test,
     [BACKEND_INTERNALS]: {
       envSchema,
+      durableObjects: slots.durableObjects as DurableObjectsConfig | undefined,
       inspect,
       start,
     },

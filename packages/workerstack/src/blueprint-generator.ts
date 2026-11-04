@@ -15,6 +15,7 @@ import { isWorkerstackBackend } from './backend'
 import { BACKEND_INTERNALS } from './backend-internals'
 import {
   blueprintFromManifest,
+  parseBlueprintYaml,
   parseWorkerBlueprintYaml,
   serializeBlueprint,
   WORKER_PACKAGE_ENTRIES,
@@ -22,6 +23,10 @@ import {
   type WorkerRender,
   type WorkerSettings,
 } from './blueprint'
+import {
+  assertNoDroppedDurableObjects,
+  type DurableObjectEntry,
+} from './durable-objects'
 import { createEnvProbeSources } from './env-probe'
 import { assertManifestMatchesBlueprint } from './hosted-contract'
 import { parseManifest } from './manifest'
@@ -189,6 +194,20 @@ async function workerSettings(
   }
 }
 
+function committedDurableObjects(
+  existing: string | undefined,
+): DurableObjectEntry[] | undefined {
+  if (!existing) return undefined
+  try {
+    const blueprint = parseBlueprintYaml(existing)
+    return blueprint.version === 2
+      ? blueprint.application.worker.durableObjects
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function packageVersion(): Promise<string> {
   const pkg = (await Bun.file(
     new URL('../package.json', import.meta.url),
@@ -302,6 +321,12 @@ export async function generateBlueprint(
       typeof allDependencies['@tanstack/react-start'] === 'string',
     ),
   })
+  // A class the committed blueprint declares must not vanish: its objects and
+  // data outlive the line, and Cloudflare refuses the deploy.
+  assertNoDroppedDurableObjects(
+    committedDurableObjects(existing),
+    blueprint.application.worker.durableObjects,
+  )
   const source = serializeBlueprint(blueprint)
   if (options.check) {
     if (existing !== source) throw new BlueprintCheckError()

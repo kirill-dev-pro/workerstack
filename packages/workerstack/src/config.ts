@@ -14,6 +14,7 @@ import type { WorkerstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
 import type { DbFor } from './db'
 import type { AnyDb } from './dialect'
+import type { DurableObjectsConfig } from './durable-objects'
 import type { IdempotencyConfig } from './idempotency'
 import type { MessagingConfig } from './messaging'
 import type { RateLimitConfig } from './rate-limit'
@@ -215,6 +216,13 @@ export type WorkerstackConfig<
   /** Generate and serve `/api/openapi.json`. Disabled by default. */
   openapi?: boolean
   realtime?: RealtimeConfigInput
+  /**
+   * The application's own Durable Object classes, keyed by env binding:
+   * `{ DOC_ROOM: DocRoom }`. Each one is bound in the Worker and provisioned
+   * on deploy. The class extends `DurableObject` from `workerstack/durable`
+   * so this module still loads in Bun when the blueprint is generated.
+   */
+  durableObjects?: DurableObjectsConfig
 }
 
 export type ResolvedConfig = {

@@ -26,6 +26,9 @@ export function manifestFromBlueprint(source: string): WorkerstackManifest {
     },
     storage: blueprint.resources.storage,
     realtime: blueprint.resources.realtime ?? { required: false },
+    ...(blueprint.version === 2 && blueprint.application.worker.durableObjects
+      ? { durableObjects: blueprint.application.worker.durableObjects }
+      : {}),
     messaging: blueprint.resources.messaging,
     environment: blueprint.environment.map((entry) => ({
       ...entry,

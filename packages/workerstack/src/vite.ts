@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { parseWorkerBlueprintYaml } from './blueprint'
+import { parseWorkerBlueprintYaml, type WorkerBlueprint } from './blueprint'
 
 /** A Vite plugin, typed without importing vite. */
 export type VitePluginLike = { name: string }
@@ -83,6 +83,25 @@ async function appFactories(root: string, ssr: boolean): Promise<Factories> {
   return { cloudflare, tanstackStart }
 }
 
+const DURABLE_OBJECTS_MODULE = 'virtual:workerstack/durable-objects'
+const RESOLVED_DURABLE_OBJECTS = `\0${DURABLE_OBJECTS_MODULE}`
+
+export function durableObjectsModule(blueprint: WorkerBlueprint): string {
+  const live = (blueprint.application.worker.durableObjects ?? []).filter(
+    (entry) => !entry.deleted,
+  )
+  return [
+    "import { backend } from 'virtual:workerstack/backend'",
+    "import { appDurableObjectClasses } from 'workerstack/workers'",
+    'const classes = appDurableObjectClasses(backend)',
+    ...live.map(
+      (entry) =>
+        `export const ${entry.className} = classes[${JSON.stringify(entry.binding)}]`,
+    ),
+    '',
+  ].join('\n')
+}
+
 export async function workerstack(
   options: { root?: string; factories?: Factories } = {},
 ): Promise<VitePluginLike[]> {
@@ -110,7 +129,15 @@ export async function workerstack(
     name: 'workerstack:backend',
     resolveId(id: string) {
       if (id === 'virtual:workerstack/backend') return backendEntry
+      if (id === DURABLE_OBJECTS_MODULE) return RESOLVED_DURABLE_OBJECTS
       return undefined
+    },
+    // The app's live Durable Object classes as named exports, so the package
+    // entries can export them: an ES module's export names are static, and
+    // only the blueprint knows them at build time.
+    load(id: string) {
+      if (id !== RESOLVED_DURABLE_OBJECTS) return undefined
+      return durableObjectsModule(blueprint)
     },
     config() {
       return {

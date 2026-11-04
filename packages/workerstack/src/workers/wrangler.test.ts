@@ -15,11 +15,10 @@ const plan: WorkerPlan = {
       { name: 'REALTIME', className: 'RealtimeHub' },
       { name: 'RATE_LIMITER', className: 'RateLimiter' },
     ],
-    migrations: [
-      {
-        tag: 'v1',
-        newSqliteClasses: ['Scheduler', 'RealtimeHub', 'RateLimiter'],
-      },
+    classes: [
+      { className: 'Scheduler' },
+      { className: 'RealtimeHub' },
+      { className: 'RateLimiter' },
     ],
   },
   buckets: [{ name: 'media', binding: 'BUCKET_MEDIA' }],
@@ -54,12 +53,11 @@ test('wrangler.json is the plan with local physical names', () => {
         { name: 'RATE_LIMITER', class_name: 'RateLimiter' },
       ],
     },
-    migrations: [
-      {
-        tag: 'v1',
-        new_sqlite_classes: ['Scheduler', 'RealtimeHub', 'RateLimiter'],
-      },
-    ],
+    exports: {
+      Scheduler: { type: 'durable-object', storage: 'sqlite' },
+      RealtimeHub: { type: 'durable-object', storage: 'sqlite' },
+      RateLimiter: { type: 'durable-object', storage: 'sqlite' },
+    },
     r2_buckets: [{ binding: 'BUCKET_MEDIA', bucket_name: 'fikflix-media' }],
     assets: {
       directory: 'dist/client',
@@ -69,6 +67,38 @@ test('wrangler.json is the plan with local physical names', () => {
     },
     triggers: { crons: ['0 4 * * *', '0 8 * * *'] },
   })
+})
+
+test('app classes bind live, a deleted one stays as a tombstone, celld gets no exports', () => {
+  const withApp = {
+    ...plan,
+    durableObjects: {
+      bindings: [
+        ...plan.durableObjects.bindings,
+        { name: 'DOC_ROOM', className: 'DocRoom' },
+      ],
+      classes: [
+        ...plan.durableObjects.classes,
+        { className: 'DocRoom' },
+        { className: 'OldRoom', deleted: true as const },
+      ],
+    },
+  }
+  const names = { name: 'app', bucketName: (bucket: string) => bucket }
+  const config = toWranglerConfig(withApp, names)
+  expect(config.durable_objects.bindings.at(-1)).toEqual({
+    name: 'DOC_ROOM',
+    class_name: 'DocRoom',
+  })
+  expect(config.exports).toMatchObject({
+    DocRoom: { type: 'durable-object', storage: 'sqlite' },
+    OldRoom: { type: 'durable-object', state: 'deleted' },
+  })
+  expect('migrations' in config).toBe(false)
+  const celld = toWranglerConfig(withApp, names, { runtime: 'celld' })
+  expect('exports' in celld).toBe(false)
+  expect('migrations' in celld).toBe(false)
+  expect(celld.durable_objects.bindings).toHaveLength(4)
 })
 
 test('no crons means no triggers key', () => {

@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- New: app-defined Durable Objects. Declare classes in
+  `workerstack({ durableObjects: { DOC_ROOM: DocRoom } })`, keyed by env
+  binding; the class name is read from the class. They reach the manifest,
+  the blueprint (`application.worker.durableObjects`), `wrangler.json`,
+  `workerstack dev` and the host. Extend `DurableObject` from the new
+  `workerstack/durable` entry: Cloudflare's class in the Worker (`workerd`
+  condition), a stand-in in Bun, where the blueprint generator loads the
+  declaration. Package entries export declared classes themselves; a custom
+  entry re-exports each from its module. Recipe:
+  `docs/recipes/durable-objects.md`, example `examples/doc-room`.
+- Change: `wrangler.json` declares Durable Objects with Cloudflare's `exports`
+  map instead of `migrations`. The first `wrangler deploy` with it moves an
+  existing Worker off migration tags permanently; data is kept (checked on a
+  live account). `WorkerPlan.durableObjects.migrations` is replaced by
+  `classes`. `workerstack wrangler --celld` writes the config without
+  `exports`, which celld refuses.
+- Safety: a class may not disappear from the declaration. Deleting one (and
+  its data on Cloudflare) takes `{ class, deleted: true }`; the generator and
+  `assertNoDroppedDurableObjects` refuse a silent drop, as Cloudflare does.
+- `workerstack build` fails when the Worker does not export a class it binds.
+
 ## 0.2.9
 
 - Security: requires Better Auth 1.7.16 (`peerDependencies.better-auth`

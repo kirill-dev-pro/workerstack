@@ -1,0 +1,23 @@
+{
+  "name": "doc-room",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "blueprint": "bun ../../packages/workerstack/src/cli.ts blueprint .",
+    "wrangler": "bun ../../packages/workerstack/src/cli.ts wrangler .",
+    "build": "bun ../../packages/workerstack/src/cli.ts build .",
+    "dev": "bun ../../packages/workerstack/src/cli.ts dev ."
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "better-auth": "^1.7.16",
+    "drizzle-orm": "^0.45.0",
+    "valibot": "1.4.2",
+    "workerstack": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.0",
+    "vite": "^8.0.0",
+    "wrangler": "^4.143.0"
+  }
+}

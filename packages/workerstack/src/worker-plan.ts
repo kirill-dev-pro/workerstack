@@ -3,6 +3,8 @@
 // the renderer's job: `wrangler.json` locally, a host's own config in hosting.
 import type { WorkerBlueprint, WorkerRender } from './blueprint'
 
+import { BUILT_IN_DURABLE_OBJECTS } from './durable-objects'
+
 /** Cloudflare's per-Worker Cron Trigger limit on the free plan. */
 const MAX_CRONS = 5
 
@@ -13,8 +15,13 @@ export type WorkerPlan = {
   compatibilityDate: string
   compatibilityFlags: string[]
   durableObjects: {
+    /** Live classes the Worker binds: workerstack's own, then the app's. */
     bindings: { name: string; className: string }[]
-    migrations: { tag: string; newSqliteClasses: string[] }[]
+    /**
+     * Every class Cloudflare must know, for its `exports` map: the live ones
+     * and the app's deleted ones (tombstones). All are SQLite-backed.
+     */
+    classes: { className: string; deleted?: true }[]
   }
   buckets: { name: string; binding: string }[]
   crons: string[]
@@ -54,23 +61,21 @@ export function workerPlanFromBlueprint(
     ]),
   ]
   const ssr = worker.render === 'ssr'
+  const appObjects = worker.durableObjects ?? []
+  const live = appObjects.filter((entry) => !entry.deleted)
   return {
     render: worker.render,
     main: worker.main,
     compatibilityDate: worker.compatibilityDate,
     compatibilityFlags: ['nodejs_compat'],
     durableObjects: {
-      bindings: [
-        { name: 'SCHEDULER', className: 'Scheduler' },
-        { name: 'REALTIME', className: 'RealtimeHub' },
-        { name: 'RATE_LIMITER', className: 'RateLimiter' },
-      ],
-      migrations: [
-        {
-          tag: 'v1',
-          newSqliteClasses: ['Scheduler', 'RealtimeHub', 'RateLimiter'],
-        },
-      ],
+      bindings: [...BUILT_IN_DURABLE_OBJECTS, ...live].map(
+        ({ binding, className }) => ({ name: binding, className }),
+      ),
+      classes: [...BUILT_IN_DURABLE_OBJECTS, ...appObjects].map(
+        ({ className, deleted }) =>
+          deleted ? { className, deleted } : { className },
+      ),
     },
     buckets: buckets.map((bucket) => ({
       name: bucket.name,

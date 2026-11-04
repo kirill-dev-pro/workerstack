@@ -134,7 +134,10 @@ async function setup(appDir: string) {
       toWranglerConfig(
         plan,
         { name, bucketName: (bucket) => `${name}-${bucket}` },
-        { artifact: true },
+        {
+          artifact: true,
+          runtime: runtime === 'celld' ? 'celld' : 'cloudflare',
+        },
       ),
       null,
       2,
@@ -403,7 +406,9 @@ const scenarios: [string, (ctx: Ctx) => Promise<void>][] = [
 const [, , auth] = scenarios
 
 const page = async (ctx: Ctx, path: string) =>
-  (await fetch(`${ctx.base}${path}`, { headers: { cookie: ctx.cookie } })).text()
+  (
+    await fetch(`${ctx.base}${path}`, { headers: { cookie: ctx.cookie } })
+  ).text()
 
 const ssrScenarios: typeof scenarios = [
   auth!,
@@ -412,7 +417,8 @@ const ssrScenarios: typeof scenarios = [
     async (ctx) => {
       const html = await page(ctx, '/')
       if (!html.includes('id="ssr"')) throw new Error('no SSR markup')
-      if (!html.includes(ctx.email)) throw new Error('SSR does not show the user')
+      if (!html.includes(ctx.email))
+        throw new Error('SSR does not show the user')
     },
   ],
   [
@@ -420,7 +426,9 @@ const ssrScenarios: typeof scenarios = [
     async (ctx) => {
       const html = await page(ctx, '/')
       if (!/events status (<!-- -->)?200/.test(html)) {
-        throw new Error(`loader did not reach the backend: ${html.slice(0, 400)}`)
+        throw new Error(
+          `loader did not reach the backend: ${html.slice(0, 400)}`,
+        )
       }
     },
   ],

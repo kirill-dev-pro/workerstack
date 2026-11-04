@@ -1,0 +1,5 @@
+.celld/
+.wrangler/
+.dev.vars
+.workerstack/
+wrangler.json

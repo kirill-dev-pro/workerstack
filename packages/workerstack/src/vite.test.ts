@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { blueprintFromManifest, serializeBlueprint } from './blueprint'
-import { workerstack } from './vite'
+import { durableObjectsModule, workerstack } from './vite'
 
 async function app(render: 'ssr' | 'spa') {
   const root = await mkdtemp(join(tmpdir(), 'workerstack-vite-'))
@@ -124,4 +124,25 @@ test('a missing blueprint asks to generate it', async () => {
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('the virtual module exports the live app Durable Object classes by name', () => {
+  const blueprint = {
+    application: {
+      worker: {
+        durableObjects: [
+          { binding: 'DOC_ROOM', className: 'DocRoom' },
+          { binding: 'OLD_ROOM', className: 'OldRoom', deleted: true },
+        ],
+      },
+    },
+  } as unknown as Parameters<typeof durableObjectsModule>[0]
+  const code = durableObjectsModule(blueprint)
+  expect(code).toContain('export const DocRoom = classes["DOC_ROOM"]')
+  expect(code).not.toContain('OldRoom')
+  expect(
+    durableObjectsModule({
+      application: { worker: {} },
+    } as unknown as Parameters<typeof durableObjectsModule>[0]),
+  ).not.toContain('export const')
 })

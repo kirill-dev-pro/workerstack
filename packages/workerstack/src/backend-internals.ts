@@ -1,3 +1,4 @@
+import type { DurableObjectsConfig } from './durable-objects'
 import type { EnvConfigInput } from './env'
 import type { InspectedDefinition } from './inspect'
 import type { TickResult } from './jobs'
@@ -38,6 +39,8 @@ export type RuntimeTestingHandle = {
 
 export type BackendInternals<TApp> = {
   readonly envSchema: EnvConfigInput | undefined
+  /** `workerstack({ durableObjects })`: the Worker exports these classes. */
+  readonly durableObjects: DurableObjectsConfig | undefined
   inspect(source: Record<string, string | undefined>): InspectedDefinition
   start(
     source: Record<string, string | undefined>,

@@ -68,6 +68,7 @@ export function inspectConfig(
       envConfig,
       messaging: config.messaging,
       realtime: Boolean(config.realtime),
+      durableObjects: config.durableObjects,
       api: describeApiOperations(customApiRouter),
       jobs: config.storage
         ? {

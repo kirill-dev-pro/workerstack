@@ -1,7 +1,8 @@
 // src/workers/wrangler.ts — wrangler.json rendered from the committed
-// blueprint. The file is a local artifact (git-ignored): `celld dev`, a manual
-// `wrangler deploy`, or `celld deploy` read it. Hosts render their own config
-// from the same WorkerPlan.
+// blueprint. The file is a local artifact (git-ignored): the Cloudflare Vite
+// plugin, a manual `wrangler deploy`, or (written with --celld) `celld dev`
+// and `celld deploy` read it. Hosts render their own config from the same
+// WorkerPlan.
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,11 +15,30 @@ import { workerPlanFromBlueprint } from '../worker-plan'
 
 export type WranglerConfig = ReturnType<typeof toWranglerConfig>
 
+/**
+ * Durable Object classes for Cloudflare's declarative `exports` map: no
+ * migration tags, a deleted class stays as a tombstone. celld neither reads
+ * migrations nor accepts `exports`, so its config carries only the bindings.
+ */
+export function durableObjectExports(plan: WorkerPlan) {
+  return Object.fromEntries(
+    plan.durableObjects.classes.map(({ className, deleted }) => [
+      className,
+      deleted
+        ? { type: 'durable-object' as const, state: 'deleted' as const }
+        : { type: 'durable-object' as const, storage: 'sqlite' as const },
+    ]),
+  )
+}
+
 export function toWranglerConfig(
   plan: WorkerPlan,
   names: { name: string; bucketName: (logical: string) => string },
-  /** artifact: main and assets of the build output instead of the source. */
-  options: { artifact?: boolean } = {},
+  /**
+   * artifact: main and assets of the build output instead of the source.
+   * runtime: celld leaves out `exports`, which it refuses.
+   */
+  options: { artifact?: boolean; runtime?: 'cloudflare' | 'celld' } = {},
 ) {
   return {
     name: names.name,
@@ -31,10 +51,9 @@ export function toWranglerConfig(
         class_name: binding.className,
       })),
     },
-    migrations: plan.durableObjects.migrations.map((migration) => ({
-      tag: migration.tag,
-      new_sqlite_classes: [...migration.newSqliteClasses],
-    })),
+    ...(options.runtime === 'celld'
+      ? {}
+      : { exports: durableObjectExports(plan) }),
     r2_buckets: plan.buckets.map((bucket) => ({
       binding: bucket.binding,
       bucket_name: names.bucketName(bucket.name),
@@ -83,6 +102,7 @@ export async function runWranglerCommand(options: {
   directory: string
   name?: string
   output?: string
+  runtime?: 'cloudflare' | 'celld'
 }): Promise<{ path: string; changed: boolean }> {
   const directory = resolve(options.directory)
   const pkg = JSON.parse(
@@ -101,10 +121,11 @@ export async function runWranglerCommand(options: {
   }
   const plan = workerPlanFromBlueprint(parseWorkerBlueprintYaml(source))
   const name = workerName(options.name ?? pkg.name)
-  const config = toWranglerConfig(plan, {
-    name,
-    bucketName: (bucket) => `${name}-${bucket}`,
-  })
+  const config = toWranglerConfig(
+    plan,
+    { name, bucketName: (bucket) => `${name}-${bucket}` },
+    { runtime: options.runtime ?? 'cloudflare' },
+  )
   const path = join(directory, options.output ?? 'wrangler.json')
   const text = `${JSON.stringify(config, null, 2)}\n`
   const existing = await readFile(path, 'utf8').catch(() => undefined)

@@ -3,12 +3,15 @@
 // Cloudflare plugin; build checks workerstack.blueprint.yaml, writes
 // wrangler.json from it, and builds dist/server and dist/client with Vite.
 import { watch } from 'node:fs'
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { parseWorkerBlueprintYaml } from '../blueprint'
 import { generateBlueprint } from '../blueprint-generator'
+import { workerPlanFromBlueprint } from '../worker-plan'
+import { missingDurableObjectExports } from '../workers/artifact-exports'
 import { runWranglerCommand } from '../workers/wrangler'
 import { resolveBinary } from './binaries'
 import { devSecret, devVars, readUserEnv } from './env'
@@ -313,9 +316,28 @@ export async function runBuild(options: {
   for (const path of await cleanArtifact(directory)) {
     console.log(`removed ${path}`)
   }
-  if (!(await Bun.file(join(directory, 'dist/server/index.js')).exists())) {
+  const artifact = Bun.file(join(directory, 'dist/server/index.js'))
+  if (!(await artifact.exists())) {
     console.error(
       '[workerstack] the build did not produce dist/server/index.js',
+    )
+    return 1
+  }
+  // Every bound class must be an export of the Worker module; Cloudflare
+  // would refuse the deploy, and celld would fail the first request.
+  const plan = workerPlanFromBlueprint(
+    parseWorkerBlueprintYaml(
+      await readFile(join(directory, 'workerstack.blueprint.yaml'), 'utf8'),
+    ),
+  )
+  const missing = missingDurableObjectExports(
+    await artifact.text(),
+    plan.durableObjects.bindings.map((binding) => binding.className),
+  )
+  if (missing.length > 0) {
+    console.error(
+      `[workerstack] the Worker does not export Durable Object class ${missing.join(', ')}; ` +
+        `re-export it from the Worker entry (${plan.main}) under that name: export { ${missing[0]} } from the module that defines it`,
     )
     return 1
   }

@@ -305,6 +305,25 @@ test('generateBlueprint keeps Worker settings from the committed blueprint', asy
   }
 })
 
+test('generateBlueprint refuses to drop a Durable Object the committed blueprint declares', async () => {
+  const directory = await fixture()
+  try {
+    const first = await generateBlueprint({ directory, today: '2026-09-29' })
+    // The committed blueprint names DocRoom; the app no longer declares it.
+    const committed = first.source.replace(
+      '  assets: dist/client\n',
+      '  assets: dist/client\n    durableObjects:\n      - binding: DOC_ROOM\n        className: DocRoom\n',
+    )
+    expect(committed).not.toBe(first.source)
+    await Bun.write(join(directory, 'workerstack.blueprint.yaml'), committed)
+    await expect(
+      generateBlueprint({ directory, today: '2030-01-01' }),
+    ).rejects.toThrow(/DocRoom \(DOC_ROOM\) was declared and is no longer/)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('generateBlueprint adopts compatibility_date and assets from an old wrangler.json', async () => {
   const directory = await fixture()
   try {

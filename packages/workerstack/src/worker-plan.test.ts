@@ -79,11 +79,10 @@ test('the plan carries the Worker settings, DOs, buckets, routes, and crons', ()
         { name: 'REALTIME', className: 'RealtimeHub' },
         { name: 'RATE_LIMITER', className: 'RateLimiter' },
       ],
-      migrations: [
-        {
-          tag: 'v1',
-          newSqliteClasses: ['Scheduler', 'RealtimeHub', 'RateLimiter'],
-        },
+      classes: [
+        { className: 'Scheduler' },
+        { className: 'RealtimeHub' },
+        { className: 'RateLimiter' },
       ],
     },
     buckets: [
@@ -162,4 +161,20 @@ test('ssr sends every path without a file to the Worker', () => {
   expect(plan.assets.notFoundHandling).toBe('none')
   expect(plan.assets.runWorkerFirst).toEqual([])
   expect(plan.artifact.main).toBe('dist/server/index.js')
+})
+
+test('app Durable Objects bind after the built-ins; a deleted one is only a tombstone', () => {
+  const base = blueprint()
+  base.application.worker.durableObjects = [
+    { binding: 'DOC_ROOM', className: 'DocRoom' },
+    { binding: 'OLD_ROOM', className: 'OldRoom', deleted: true },
+  ]
+  const { durableObjects } = workerPlanFromBlueprint(base)
+  expect(durableObjects.bindings.slice(3)).toEqual([
+    { name: 'DOC_ROOM', className: 'DocRoom' },
+  ])
+  expect(durableObjects.classes.slice(3)).toEqual([
+    { className: 'DocRoom' },
+    { className: 'OldRoom', deleted: true },
+  ])
 })

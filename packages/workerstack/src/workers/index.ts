@@ -1,14 +1,29 @@
 // src/workers/index.ts — `workerstack/workers`: run an app as a Worker on
 // Cloudflare or celld. See the Workers runtime spec for the binding names.
 import type { WorkerstackBackend } from '../backend'
+import type { DurableObjectClass } from '../durable-objects'
 import type { ExecutionContextLike, WorkerEnv } from './types'
 
+import { BACKEND_INTERNALS } from '../backend-internals'
+import { liveDurableObjectClasses } from '../durable-objects'
 import { appFor, notifyScheduler } from './app'
 import { currentWorkerContext, withWorkerContext } from './context'
 import { RateLimiter } from './rate-limiter'
 import { RealtimeHub } from './realtime-hub'
 import { registerWorker, rememberWorkerEnv } from './registry'
 import { createSchedulerClass } from './scheduler'
+
+/**
+ * The application's live Durable Object classes, keyed by binding. The
+ * package entries export them under their class names through the
+ * `virtual:workerstack/durable-objects` module; a custom entry re-exports
+ * each class from its own module: `export { DocRoom } from './doc-room'`.
+ */
+export function appDurableObjectClasses(
+  backend: WorkerstackBackend<any>,
+): Record<string, DurableObjectClass> {
+  return liveDurableObjectClasses(backend[BACKEND_INTERNALS]?.durableObjects)
+}
 
 export function createWorker<TApp = any>(backend: WorkerstackBackend<TApp>) {
   // Without Cron Triggers nothing else starts the alarm chain; after the

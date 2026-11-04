@@ -20,7 +20,7 @@ export type CliIo = {
 const help = `Usage:
   workerstack blueprint [directory] [--entry <path>] [--output <path>] [--check|--hosted-check]
   workerstack skills [--dir <path>] [--check]
-  workerstack wrangler [directory] [--name <name>] [--output <path>]
+  workerstack wrangler [directory] [--name <name>] [--output <path>] [--celld]
   workerstack dev [directory] [--port <port>]
   workerstack build [directory]
 
@@ -34,7 +34,8 @@ skills     Install the Workerstack agent skills that match this version into
 
 wrangler   Write wrangler.json, the input config of the Cloudflare Vite plugin, from
            workerstack.blueprint.yaml. The file is generated; do not commit
-           it.
+           it. --celld writes it for celld, which refuses Cloudflare's
+           Durable Object \`exports\` map.
 
 dev        Start the app locally: sqld and Vite, with the Worker (SSR, /api,
            Durable Objects) in workerd. Regenerates workerstack.blueprint.yaml
@@ -133,7 +134,12 @@ export async function runCli(
   }
 
   if (args[0] === 'wrangler') {
-    const options: { directory: string; name?: string; output?: string } = {
+    const options: {
+      directory: string
+      name?: string
+      output?: string
+      runtime?: 'celld'
+    } = {
       directory: process.cwd(),
     }
     const valued = {
@@ -150,6 +156,10 @@ export async function runCli(
           return 2
         }
         options[valued[argument as keyof typeof valued]] = value
+        continue
+      }
+      if (argument === '--celld') {
+        options.runtime = 'celld'
         continue
       }
       if (argument.startsWith('-')) {

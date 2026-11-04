@@ -72,6 +72,11 @@
       "types": "./dist/workers/index.d.ts",
       "default": "./dist/workers/index.js"
     },
+    "./durable": {
+      "types": "./dist/durable/index.d.ts",
+      "workerd": "./dist/durable/workerd.js",
+      "default": "./dist/durable/index.js"
+    },
     "./vite": {
       "types": "./dist/vite.d.ts",
       "default": "./dist/vite.js"

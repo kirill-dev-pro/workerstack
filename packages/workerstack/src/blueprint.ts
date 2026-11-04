@@ -1,8 +1,10 @@
 import * as v from 'valibot'
 import { parse, stringify } from 'yaml'
 
+import type { DurableObjectEntry } from './durable-objects'
 import type { WorkerstackManifest } from './manifest'
 
+import { validateDurableObjectEntries } from './durable-objects'
 import { parseCron } from './jobs/cron'
 import { managedIdentitySchema } from './manifest'
 import { validateStandardSchema } from './standard-schema'
@@ -38,6 +40,11 @@ export type WorkerSettings = {
   main: string
   compatibilityDate: string
   assets: string
+  /**
+   * The application's own Durable Object classes, from
+   * `workerstack({ durableObjects })`. Absent when there are none.
+   */
+  durableObjects?: DurableObjectEntry[]
 }
 
 type BlueprintBackground = Pick<
@@ -131,6 +138,11 @@ const workerMain = v.pipe(
   ),
 )
 const framework = v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom'])
+const durableObjectEntry = v.strictObject({
+  binding: v.string(),
+  className: v.string(),
+  deleted: v.optional(v.literal(true)),
+})
 
 const generatorEntry = open({
   name: v.literal('workerstack'),
@@ -251,6 +263,7 @@ const workerSchema = open({
       main: workerMain,
       compatibilityDate,
       assets: relativePath,
+      durableObjects: v.optional(v.array(durableObjectEntry)),
     }),
   }),
   ...sharedEntries,
@@ -354,6 +367,9 @@ export function parseBlueprint(value: unknown): WorkerstackBlueprint {
       )
     }
   } else {
+    validateDurableObjectEntries(
+      blueprint.application.worker.durableObjects ?? [],
+    )
     const scripts = blueprint.application.scripts as Record<string, unknown>
     if (Object.keys(scripts).some((name) => name !== 'build')) {
       throw new Error(
@@ -396,7 +412,15 @@ export function blueprintFromManifest(args: {
     application: {
       framework: args.framework ?? 'tanstack-start',
       scripts: { build: 'build' },
-      worker: args.worker,
+      worker: {
+        render: args.worker.render,
+        main: args.worker.main,
+        compatibilityDate: args.worker.compatibilityDate,
+        assets: args.worker.assets,
+        ...(args.manifest.durableObjects?.length
+          ? { durableObjects: args.manifest.durableObjects }
+          : {}),
+      },
     },
     workerstack: { entry: args.entry, manifestVersion: 4 },
     resources: {
@@ -467,6 +491,11 @@ export function serializeBlueprint(value: WorkerstackBlueprint): string {
   )
 }
 
+export {
+  assertNoDroppedDurableObjects,
+  BUILT_IN_DURABLE_OBJECTS,
+  type DurableObjectEntry,
+} from './durable-objects'
 export {
   bucketBindingName,
   workerPlanFromBlueprint,

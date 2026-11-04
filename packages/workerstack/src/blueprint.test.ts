@@ -449,3 +449,58 @@ test('main is a relative path or a known package entry', () => {
     expect(() => parseBlueprint(withMain(main))).toThrow()
   }
 })
+
+test('app Durable Objects come from the manifest, round-trip, and refuse unsafe names', () => {
+  const durableObjects = [{ binding: 'DOC_ROOM', className: 'DocRoom' }]
+  const blueprint = blueprintFromManifest({
+    manifest: { ...manifest, durableObjects },
+    generatorVersion: '0.2.10',
+    entry: 'src/workerstack.ts',
+    migrationMode: 'migrations',
+    worker: WORKER,
+  })
+  const yaml = serializeBlueprint(blueprint)
+  expect(yaml).toContain('durableObjects:')
+  expect(
+    parseWorkerBlueprint(parseBlueprintYaml(yaml)).application.worker
+      .durableObjects,
+  ).toEqual(durableObjects)
+  // Without app classes the worker section is unchanged.
+  expect(
+    serializeBlueprint(
+      blueprintFromManifest({
+        manifest,
+        generatorVersion: '0.2.10',
+        entry: 'src/workerstack.ts',
+        migrationMode: 'migrations',
+        worker: WORKER,
+      }),
+    ),
+  ).not.toContain('durableObjects')
+
+  const withObjects = (entries: unknown) =>
+    parseBlueprint({
+      ...blueprint,
+      application: {
+        ...blueprint.application,
+        worker: { ...blueprint.application.worker, durableObjects: entries },
+      },
+    })
+  for (const [entries, message] of [
+    [[{ binding: 'doc_room', className: 'DocRoom' }], /UPPER_SNAKE_CASE/],
+    [[{ binding: 'DOC_ROOM', className: 'doc-room' }], /named class/],
+    [[{ binding: 'SCHEDULER', className: 'DocRoom' }], /workerstack binds/],
+    [[{ binding: 'DOCS', className: 'RealtimeHub' }], /workerstack binds/],
+    [[{ binding: 'ASSETS', className: 'DocRoom' }], /workerstack binds/],
+    [[{ binding: 'BUCKET_DOCS', className: 'DocRoom' }], /BUCKET_/],
+    [
+      [
+        { binding: 'A', className: 'DocRoom' },
+        { binding: 'B', className: 'DocRoom' },
+      ],
+      /duplicate Durable Object class/,
+    ],
+    [[{ binding: 'A', className: 'DocRoom', extra: 1 }], /./],
+  ] as const)
+    expect(() => withObjects(entries)).toThrow(message)
+})

@@ -5,12 +5,17 @@ import * as v from 'valibot'
 
 import type { BetterAuthConfig } from './config'
 import type { Dialect } from './dialect'
+import type {
+  DurableObjectEntry,
+  DurableObjectsConfig,
+} from './durable-objects'
 import type { EnvConfigInput, EnvVarMeta } from './env'
 import type { JobsDefs } from './jobs/define'
 import type { MessagingConfig } from './messaging'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
 import { missingAuthModels } from './auth'
+import { describeDurableObjects } from './durable-objects'
 import {
   workerstackMessageEvents,
   workerstackMessages,
@@ -74,6 +79,8 @@ export type WorkerstackManifest = {
     buckets: { name: string; visibility: ResolvedBucket['visibility'] }[]
   }
   realtime: { required: boolean }
+  /** The application's own Durable Object classes. Absent when there are none. */
+  durableObjects?: DurableObjectEntry[]
   messaging: {
     channels: {
       name: string
@@ -147,6 +154,15 @@ const manifestSchema = v.strictObject({
     ),
   }),
   realtime: v.strictObject({ required: v.boolean() }),
+  durableObjects: v.optional(
+    v.array(
+      v.strictObject({
+        binding: nonEmpty,
+        className: nonEmpty,
+        deleted: v.optional(v.literal(true)),
+      }),
+    ),
+  ),
   messaging: v.strictObject({
     channels: v.array(
       v.strictObject({
@@ -355,6 +371,7 @@ export function buildManifest(args: {
   envConfig: EnvConfigInput | undefined
   messaging: MessagingConfig | undefined
   realtime: boolean
+  durableObjects?: DurableObjectsConfig
   jobs: JobsDefs | undefined
   api: ApiOperation[]
 }): WorkerstackManifest {
@@ -388,6 +405,7 @@ export function buildManifest(args: {
     ...describeSection(args.envConfig?.server, 'server', args.envConfig?.meta),
     ...describeSection(args.envConfig?.client, 'client', args.envConfig?.meta),
   ]
+  const durableObjects = describeDurableObjects(args.durableObjects)
   const auth = args.auth === 'builder' ? {} : (args.auth ?? {})
   const capable =
     auth.managedIdentity !== false &&
@@ -446,6 +464,7 @@ export function buildManifest(args: {
       ),
     },
     realtime: { required: args.realtime },
+    ...(durableObjects.length > 0 ? { durableObjects } : {}),
     messaging: {
       channels: sortBy(
         Object.entries(args.messaging ?? {}).map(([name, descriptor]) => ({
