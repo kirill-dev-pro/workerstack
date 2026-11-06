@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1
+
+- Failed background jobs no longer stay in the jobs table forever. Rows that
+  end `failed` are deleted 30 days after they finish; succeeded rows keep
+  their 24-hour retention. Each row carries the job's full payload and last
+  error, so an app whose handler failed on every job grew the table without
+  bound. The hourly sweep deletes in batches of 1,000, so the first sweep
+  after upgrading does not hold the write lock through one long statement.
+- The message journal no longer grows forever. `_bunderstack_messages` rows,
+  with their recipients and content, and their `_bunderstack_message_events`
+  are deleted 30 days after they were created. Sending or receiving a message
+  runs the sweep at most once an hour per isolate; a failed sweep is logged
+  and never fails the send. No schema change.
+
 ## 0.3.0
 
 Minor release: app-defined Durable Objects. Hosts that render Worker
