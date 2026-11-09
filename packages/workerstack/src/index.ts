@@ -75,6 +75,7 @@ export {
   telemetryMiddleware,
 } from './telemetry/index'
 export type {
+  JobRunEvent,
   Telemetry,
   TelemetryConfig,
   TelemetryContext,

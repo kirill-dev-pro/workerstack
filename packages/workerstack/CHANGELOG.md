@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.4.0
+
+- The jobs table holds work, not history. A queue job's row is deleted the
+  moment it succeeds; before, it stayed as `succeeded` for a day, so a busy
+  Worker wrote, rewrote and later swept a row for every run on a database
+  billed by the row. What remains of a finished attempt is the structured
+  `job.*` log line and, new, a run record in the telemetry batch (`jobs[]`:
+  type, kind, outcome, attempt, `runAt`, `finishedAt`, duration and the error,
+  never the payload), which Bunderhost stores next to the app's logs and lists
+  in its Background tab. A refused window (429/503) keeps its run records and
+  sends them with the next one, as it does its errors. Failed rows keep their
+  30-day retention. The first hourly sweep after upgrading deletes the
+  succeeded rows an earlier release left behind, in batches.
+- A cron owns one row instead of one per occurrence. Its `dedupeKey` is now
+  the constant `@slot` and its `runAt` the slot it last ran or is running for;
+  a due minute moves the row with one insert-or-update, which any number of
+  isolates may race for. Slots run one at a time per schedule, so
+  `catchUp: 'all'` works through missed slots over successive pumps. A
+  retrying cron keeps `runAt` on its slot and waits out the backoff in
+  `lockedUntil`, which the claim and `nextDueAt` read as "not before" on a
+  pending row; the handler's `scheduledFor` is therefore the slot on every
+  attempt, not only the first. The Scheduler's alarm is never set on a due
+  slot whose row is still busy with the previous one. Per-occurrence rows
+  from earlier releases are swept with the succeeded rows.
+- `fixture.jobs.inspect()` in tests lists the rows still queued; a job that
+  succeeded is no longer among them.
+- `TelemetrySink` gains `recordJobRun(event)`; a custom sink must implement it.
+
 ## 0.3.1
 
 - Failed background jobs no longer stay in the jobs table forever. Rows that

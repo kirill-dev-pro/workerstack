@@ -13,6 +13,7 @@ import {
   createTelemetry,
   DEFAULT_RETRY_AFTER_MS,
   describeError,
+  MAX_QUEUED_JOB_RUNS,
   retryAfterMs,
   noopTelemetry,
   statusClass,
@@ -29,6 +30,7 @@ type Batch = {
     labels: Record<string, string>
     value: number
   }>
+  jobs: Array<Record<string, unknown>>
 }
 
 function harness(
@@ -315,6 +317,51 @@ const requestsMetric = (batch: Batch, route: string) =>
     (metric) =>
       metric.name === 'bh_app_requests' && metric.labels.route === route,
   )?.value
+
+test('finished attempts ship as run records, a full queue ships early, a refused window keeps them', async () => {
+  const run = (n: number) => ({
+    type: 'sendDigest',
+    kind: 'job' as const,
+    outcome: 'succeeded' as const,
+    jobId: `job_${n}`,
+    attempt: 1,
+    runAt: '2026-11-09T10:00:00.000Z',
+    finishedAt: '2026-11-09T10:00:01.000Z',
+    durationMs: 700.4,
+  })
+  const h = harness()
+  h.telemetry.recordJobRun(run(1))
+  h.telemetry.recordJobRun({
+    ...run(2),
+    outcome: 'failed',
+    error: 'x'.repeat(5_000),
+  })
+  await h.telemetry.flush()
+  expect(h.batches).toHaveLength(1)
+  expect(h.batches[0]!.jobs).toEqual([
+    { ...run(1), durationMs: 700 },
+    expect.objectContaining({ jobId: 'job_2', outcome: 'failed' }),
+  ])
+  expect((h.batches[0]!.jobs[1]!.error as string).length).toBe(2_000)
+
+  for (let n = 0; n < MAX_QUEUED_JOB_RUNS; n++) h.telemetry.recordJobRun(run(n))
+  await h.telemetry.flushIfDue()
+  expect(h.batches).toHaveLength(2)
+  expect(h.batches[1]!.jobs).toHaveLength(MAX_QUEUED_JOB_RUNS)
+
+  const refused = harness({ answers: [{ status: 429, retryAfter: '30' }] })
+  refused.telemetry.recordJobRun(run(1))
+  await refused.telemetry.flush()
+  expect(refused.batches).toHaveLength(0)
+  refused.telemetry.recordJobRun(run(2))
+  refused.advance(30_000)
+  await refused.telemetry.flushIfDue()
+  expect(refused.batches).toHaveLength(1)
+  expect(refused.batches[0]!.jobs.map((job) => job.jobId)).toEqual([
+    'job_1',
+    'job_2',
+  ])
+})
 
 test('a 429 keeps the window and sends it with the next one after Retry-After', async () => {
   const h = harness({ answers: [{ status: 429, retryAfter: '30' }] })
